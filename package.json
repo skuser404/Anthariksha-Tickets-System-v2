@@ -1,0 +1,23 @@
+{
+  "name": "antariksha-trek-ops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Antariksha Trek Operations & Commission Management System",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "build": "npm --workspace server run build && npm --workspace client run build",
+    "lint": "npm --workspace server run lint --if-present && npm --workspace client run lint --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

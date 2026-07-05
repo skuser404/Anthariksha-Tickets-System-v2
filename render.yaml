@@ -1,0 +1,42 @@
+# Render Blueprint — deploys the Express API as a free always-free web service.
+# In Render: New + → Blueprint → pick this repo. Then add the secret env vars
+# (marked sync:false) in the dashboard.
+services:
+  - type: web
+    name: antariksha-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL
+        value: 7d
+      # --- Set these in the Render dashboard (do NOT commit secrets) ---
+      - key: CLIENT_ORIGIN          # your Vercel URL, e.g. https://antariksha.vercel.app
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Optional email (OTP + alerts). Leave SMTP_HOST empty to log emails instead.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        value: "Antariksha Ops <no-reply@antariksha.local>"

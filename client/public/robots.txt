@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /$
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+# Internal dashboards require authentication — keep them out of indexes.
+Disallow: /login
+Disallow: /admin
+Disallow: /tickets
+Disallow: /earnings
+Disallow: /refunds
+Disallow: /notifications
+Disallow: /profile
+
+Sitemap: /sitemap.xml
