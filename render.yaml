@@ -7,7 +7,9 @@ services:
     runtime: node
     plan: free
     rootDir: server
-    buildCommand: npm install && npm run build
+    # --include=dev forces devDependencies (TypeScript + @types) even though
+    # NODE_ENV=production would otherwise skip them, so `tsc` can build.
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run start
     healthCheckPath: /health
     autoDeploy: true
@@ -39,4 +41,4 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: MAIL_FROM
-        value: "Antariksha Ops <antharikshatrekkers@gmail.com"
+        value: "Antariksha Ops <antharikshatrekkers@gmail.com>"
