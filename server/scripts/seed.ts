@@ -33,7 +33,7 @@ async function upsertUser(u: {
 
 async function main() {
   console.log('Seeding users...');
-  await upsertUser({ full_name: 'Antariksha Admin', email: 'admin@antariksha.test', password: 'Admin@123', role: 'admin', isSuper: true });
+  await upsertUser({ full_name: 'Antariksha Admin', email: 'sk9030973224@gmail.com', password: 'Admin@123', role: 'admin', isSuper: true });
   const ravi = await upsertUser({ full_name: 'Ravi Kumar', email: 'ravi@antariksha.test', password: 'Member@123', role: 'member' });
   const asha = await upsertUser({ full_name: 'Asha Rao', email: 'asha@antariksha.test', password: 'Member@123', role: 'member' });
 
