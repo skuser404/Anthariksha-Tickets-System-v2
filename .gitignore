@@ -16,6 +16,24 @@ server/.env
 client/.env
 client/.env.local
 
+# Credentials — these must never be committed.
+# Google service-account / OAuth client key files download with names like
+# `my-project-1a2b3c4d.json` or `client_secret_….apps.googleusercontent.com.json`.
+# The API reads its key from GOOGLE_DRIVE_CREDENTIALS, so no key file belongs
+# in the repo at all.
+*-*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!vercel.json
+!.eslintrc.json
+client_secret*.json
+service-account*.json
+*credentials*.json
+*.pem
+*.p12
+*.key
+
 # Logs
 *.log
 npm-debug.log*

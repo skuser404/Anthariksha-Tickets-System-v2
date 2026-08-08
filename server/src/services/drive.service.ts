@@ -55,8 +55,27 @@ function loadCredentials(): { client_email: string; private_key: string } {
   return { client_email: parsed.client_email, private_key: parsed.private_key.replace(/\\n/g, '\n') };
 }
 
+/** Which credential style is configured. OAuth wins when both are present. */
+export function driveAuthMode(): 'oauth' | 'service_account' | 'none' {
+  const d = env.drive;
+  if (d.oauthClientId && d.oauthClientSecret && d.oauthRefreshToken) return 'oauth';
+  if (d.credentials) return 'service_account';
+  return 'none';
+}
+
 function drive(): drive_v3.Drive {
   if (client) return client;
+  const mode = driveAuthMode();
+
+  if (mode === 'oauth') {
+    // Files are created as the authorising user, so they draw on that account's
+    // storage. This is the only workable option outside Google Workspace.
+    const auth = new google.auth.OAuth2(env.drive.oauthClientId, env.drive.oauthClientSecret);
+    auth.setCredentials({ refresh_token: env.drive.oauthRefreshToken });
+    client = google.drive({ version: 'v3', auth });
+    return client;
+  }
+
   const { client_email, private_key } = loadCredentials();
   const auth = new google.auth.JWT({ email: client_email, key: private_key, scopes: SCOPES });
   client = google.drive({ version: 'v3', auth });
@@ -70,7 +89,7 @@ export function resetDriveClient() {
 }
 
 export function isDriveConfigured(): boolean {
-  return Boolean(env.drive.credentials);
+  return driveAuthMode() !== 'none';
 }
 
 /** The configured root folder id: DB setting wins, env var is the fallback. */
@@ -284,6 +303,7 @@ export async function downloadFile(fileId: string): Promise<{ stream: Readable; 
 export interface DriveStatus {
   configured: boolean;
   connected: boolean;
+  authMode?: 'oauth' | 'service_account' | 'none';
   rootFolderId: string | null;
   rootFolderName: string | null;
   rootFolderUrl: string | null;
@@ -309,12 +329,23 @@ export async function testConnection(): Promise<DriveStatus> {
     message: '',
   };
 
+  const mode = driveAuthMode();
+  base.authMode = mode;
+
   if (!base.configured) {
-    return { ...base, message: 'GOOGLE_DRIVE_CREDENTIALS is not set on the server.' };
+    return {
+      ...base,
+      message: 'Google Drive is not configured. Set GOOGLE_DRIVE_CREDENTIALS, or the GOOGLE_OAUTH_* variables.',
+    };
   }
 
   try {
-    base.serviceAccountEmail = loadCredentials().client_email;
+    if (mode === 'oauth') {
+      const about = await drive().about.get({ fields: 'user(emailAddress)' });
+      base.serviceAccountEmail = about.data.user?.emailAddress ?? 'OAuth user';
+    } else {
+      base.serviceAccountEmail = loadCredentials().client_email;
+    }
     const rootId = await getRootFolderId();
     base.rootFolderId = rootId;
     base.rootFolderUrl = folderUrl(rootId);
@@ -338,12 +369,18 @@ export async function testConnection(): Promise<DriveStatus> {
     base.storageUsed = about.data.storageQuota?.usage ?? null;
     base.storageLimit = about.data.storageQuota?.limit ?? null;
 
+    // Only a service account is quota-less. Under OAuth the files belong to the
+    // authorising user, so a My Drive folder is perfectly fine.
+    const quotaRisk = mode === 'service_account' && !base.isSharedDrive;
+
     return {
       ...base,
       connected: true,
-      message: base.isSharedDrive
-        ? `Connected to shared drive folder "${base.rootFolderName}".`
-        : `Connected to "${base.rootFolderName}". Note: this is a My Drive folder — service accounts have no personal storage quota, so uploads can fail with storageQuotaExceeded. A Shared Drive is recommended.`,
+      message: quotaRisk
+        ? `Connected to "${base.rootFolderName}", but this is a My Drive folder and you are using a service account, which has no storage quota — uploads will fail with storageQuotaExceeded. Use a Shared Drive (Google Workspace), or switch to OAuth delegation.`
+        : mode === 'oauth'
+          ? `Connected as ${base.serviceAccountEmail} to "${base.rootFolderName}". Files are stored in that account's Drive.`
+          : `Connected to shared drive folder "${base.rootFolderName}".`,
     };
   } catch (e) {
     const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Unknown error';

@@ -176,7 +176,7 @@ export default function LoginPage() {
               className="space-y-4"
             >
               <div className="flex items-center gap-2 rounded-xl bg-brand-500/10 p-3 text-sm text-brand-500">
-                <ShieldCheck size={18} /> Two-factor verification required for admins.
+                <ShieldCheck size={18} /> Enter the verification code sent to your email.
               </div>
               <div>
                 <Label>Enter the 6-digit code</Label>

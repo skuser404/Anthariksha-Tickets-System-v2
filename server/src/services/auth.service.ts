@@ -73,11 +73,21 @@ async function logAttempt(p: {
 }
 
 async function getUserByEmail(email: string): Promise<DbUser | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', email)
     .maybeSingle();
+
+  // Discarding this error made an unreachable database look exactly like a
+  // wrong password ("Invalid email or password"), which is impossible to
+  // diagnose from the login screen. Infrastructure failures are a 503, not a
+  // credential rejection. The message stays generic — it never reveals whether
+  // the account exists.
+  if (error) {
+    console.error('User lookup failed:', error.message);
+    throw new ApiError(503, 'Sign-in is temporarily unavailable. Please try again shortly.');
+  }
   return (data as DbUser) ?? null;
 }
 
@@ -134,8 +144,13 @@ export async function loginWithPassword(
 
   await logAttempt({ userId: user.id, email, success: true, stage: 'password', meta });
 
-  // 2FA is mandatory for admins and opt-in for members.
-  const needs2fa = user.role === 'admin' || user.email_2fa === true;
+  // A second factor applies when the deployment forces it for admins, or when
+  // this specific user opted in (email OTP or an enrolled authenticator app).
+  // Per-user choices are always honoured, even with the admin rule turned off.
+  const needs2fa =
+    (user.role === 'admin' && env.security.adminTwoFactor) ||
+    user.email_2fa === true ||
+    user.totp_enabled === true;
   if (!needs2fa) {
     await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
     await sendLoginAlert(user, meta);

@@ -3,9 +3,12 @@
  * Run AFTER applying the SQL migrations:  npm --workspace server run seed
  *
  * Demo credentials (change in production!):
- *   Admin   admin@antariksha.test  / Admin@123   (2FA email OTP on login)
- *   Member  ravi@antariksha.test   / Member@123
- *   Member  asha@antariksha.test   / Member@123
+ *   Super admin  sk9030973224@gmail.com  / Admin@123   (email OTP on every login)
+ *   Member       ravi@antariksha.test    / Member@123
+ *   Member       asha@antariksha.test    / Member@123
+ *
+ * Re-running this script is safe and is also the password-reset path: users are
+ * upserted on email, so the passwords above are restored each time it runs.
  */
 import bcrypt from 'bcryptjs';
 import { supabase } from '../src/lib/supabase.js';

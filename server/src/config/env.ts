@@ -60,9 +60,34 @@ export const env = {
     credentials: optional('GOOGLE_DRIVE_CREDENTIALS'),
     // Fallback root folder; the Settings page value takes precedence.
     rootFolderId: optional('GOOGLE_DRIVE_ROOT_FOLDER_ID'),
+
+    // OAuth delegation — the alternative to a service account.
+    //
+    // A service account owns the files it creates but has no storage quota of
+    // its own, so it can only write into a Shared Drive (a Google Workspace
+    // feature). With OAuth, files are owned by a normal Google account and use
+    // its quota, which is the only option on a personal Gmail.
+    //
+    // When these are set they take precedence over GOOGLE_DRIVE_CREDENTIALS.
+    oauthClientId: optional('GOOGLE_OAUTH_CLIENT_ID'),
+    oauthClientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET'),
+    oauthRefreshToken: optional('GOOGLE_OAUTH_REFRESH_TOKEN'),
   },
 
   security: {
+    /**
+     * Force every admin through an email OTP after the password step.
+     *
+     * Disabled by default: with no SMTP configured the code only appears in the
+     * server log, which makes admin sign-in impractical. Set ADMIN_2FA=on once
+     * SMTP works — an admin account can approve tickets and move money, so a
+     * second factor is worth restoring.
+     *
+     * Independent of per-user opt-ins: a member who enables email 2FA, or
+     * anyone who enrolled an authenticator app, is still challenged.
+     */
+    adminTwoFactor: optional('ADMIN_2FA', 'off').toLowerCase() === 'on',
+
     otpTtlSeconds: int('OTP_TTL_SECONDS', 300),
     otpResendSeconds: int('OTP_RESEND_SECONDS', 60),
     otpMaxAttempts: int('OTP_MAX_ATTEMPTS', 5),

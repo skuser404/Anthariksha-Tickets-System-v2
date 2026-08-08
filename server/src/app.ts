@@ -51,6 +51,17 @@ export function createApp() {
 
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'antariksha-api', ts: Date.now() }));
 
+  // This is an API-only service; hitting the root in a browser otherwise
+  // returns a bare "Route not found", which reads like a deployment failure.
+  app.get('/', (_req, res) =>
+    res.json({
+      ok: true,
+      service: 'antariksha-api',
+      message: 'API server. There is no UI here — open the web app instead.',
+      health: '/health',
+    }),
+  );
+
   app.use('/api/auth', authRoutes);
   // Must precede ticketRoutes: that router applies requireAuth to every
   // /api/tickets/* path, and the document preview authenticates with its own

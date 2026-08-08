@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "seed": "tsx scripts/seed.ts",
+    "google:oauth": "tsx scripts/google-oauth.ts",
     "test": "tsx --test tests/*.test.ts",
     "lint": "eslint \"src/**/*.ts\" --max-warnings 0"
   },
