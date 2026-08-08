@@ -1,12 +1,21 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-function required(name: string, fallback?: string): string {
-  const v = process.env[name] ?? fallback;
-  if (v === undefined || v === '') {
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+/**
+ * Required config. The fallbacks exist so `npm run dev` works with no .env at
+ * all — but they are development-only placeholders. In production a missing
+ * value is a hard failure: silently booting with `dev-access-secret-change-me`
+ * would mean anyone could forge a valid JWT.
+ */
+function required(name: string, devFallback?: string): string {
+  const v = process.env[name];
+  if (v !== undefined && v !== '') return v;
+  if (IS_PROD || devFallback === undefined) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
-  return v;
+  return devFallback;
 }
 
 function optional(name: string, fallback = ''): string {
@@ -41,6 +50,16 @@ export const env = {
     user: optional('SMTP_USER'),
     pass: optional('SMTP_PASS'),
     from: optional('MAIL_FROM', 'Antariksha Ops <no-reply@antariksha.local>'),
+    // Where the public contact form delivers. Falls back to the from-address.
+    supportTo: optional('SUPPORT_EMAIL') || optional('ADMIN_EMAIL') || optional('MAIL_FROM', 'Antariksha Ops <no-reply@antariksha.local>'),
+  },
+
+  drive: {
+    // Service-account JSON (raw or base64). Kept in the environment, never in
+    // the database — a private key in a settings table ends up in backups.
+    credentials: optional('GOOGLE_DRIVE_CREDENTIALS'),
+    // Fallback root folder; the Settings page value takes precedence.
+    rootFolderId: optional('GOOGLE_DRIVE_ROOT_FOLDER_ID'),
   },
 
   security: {
@@ -51,4 +70,4 @@ export const env = {
   },
 } as const;
 
-export const isProd = env.nodeEnv === 'production';
+export const isProd = IS_PROD;

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui';
 
 export default function NotFoundPage() {
   return (
-    <div className="app-bg grid min-h-screen place-items-center p-4">
+    <main className="app-bg grid min-h-screen place-items-center p-4">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass max-w-md p-10 text-center">
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-brand-600/15 text-brand-500">
           <Compass size={30} />
@@ -17,6 +17,6 @@ export default function NotFoundPage() {
           <Button><Home size={16} /> Back to dashboard</Button>
         </Link>
       </motion.div>
-    </div>
+    </main>
   );
 }

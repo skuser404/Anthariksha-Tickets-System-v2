@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button, Card, EmptyState, Skeleton } from '@/components/ui';
@@ -14,6 +15,7 @@ interface Notif {
 
 export default function NotificationsPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => (await api.get('/notifications')).data.data as { items: Notif[]; unread: number },
@@ -53,7 +55,11 @@ export default function NotificationsPage() {
             <Card
               key={n.id}
               className={`flex cursor-pointer items-start gap-3 p-4 transition hover:bg-white/5 ${n.is_read ? 'opacity-70' : ''}`}
-              onClick={() => !n.is_read && markOne.mutate(n.id)}
+              onClick={() => {
+                if (!n.is_read) markOne.mutate(n.id);
+                // Notifications carry a deep link (ticket, refund, payout…); follow it.
+                if (n.link) navigate(n.link);
+              }}
             >
               <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.is_read ? 'bg-slate-400' : 'bg-brand-500'}`} />
               <div className="flex-1">

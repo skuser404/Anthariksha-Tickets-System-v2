@@ -313,6 +313,75 @@ reads use 1-hour signed URLs.
 
 ---
 
+## Permit documents (Google Drive)
+
+Ticket permits are stored in Google Drive, **not** Supabase Storage. (Comment
+attachments above still use Supabase Storage — they are a different feature.)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET  | `/api/tickets/:id/documents` | All versions (newest first) + `current`. Admin or the owning member. |
+| POST | `/api/tickets/:id/documents` | `multipart/form-data`, field `file`. PDF/JPG/PNG, ≤10 MB. Re-uploading archives the previous version and bumps `version`. |
+| POST | `/api/tickets/:id/documents/archive` | admin: archive the current document without replacing it. |
+| POST | `/api/tickets/:id/documents/:docId/view-token` | → `{ token }`, valid **5 minutes for that one document**. |
+| GET  | `/api/tickets/:id/documents/:docId/content?t=<token>` | Streams the file inline for `<iframe>`/`<img>` preview. Authenticated by the view token, not the session — an iframe cannot send headers. |
+| GET  | `/api/tickets/:id/verification-checks` | admin: pre-approval checklist → `{ checks[], blocking }`. |
+
+Upload rejections: `422` unsupported type / failed magic-byte check,
+`413` over 10 MB, `503` Drive not configured.
+
+### Drive configuration
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/drive/status` | admin: connection state, root folder, storage, last sync. |
+| POST | `/api/drive/test` | **super-admin**: probe auth + folder permissions + quota. |
+| PUT | `/api/drive/settings` | **super-admin**: `{ rootFolderId }`, then re-tests. |
+| POST | `/api/drive/reconnect` | **super-admin**: drop cached auth/folder handles. |
+
+Credentials come from `GOOGLE_DRIVE_CREDENTIALS` on the server and are never
+stored in or returned by the API. See
+[GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md).
+
+---
+
+## Verification & approval
+
+`POST /api/tickets/:id/verify` takes `{ decision, remarks?, override? }`.
+
+- `decision: 'not_confirmed'` **requires** `remarks` — the reason is stored in
+  `tickets.rejection_reason` and sent to the member (`422` if missing).
+- `decision: 'approved'` runs the server-side checklist first. Any `danger`
+  check blocks the approval with `422` unless `override: true` is sent with a
+  justification, which is written to the audit log as `ticket.approve_override`.
+- `POST /api/tickets/bulk-verify` applies the same rules per ticket.
+
+Checks: missing document, invalid file type, corrupt file, duplicate file
+(same Drive MD5 on another ticket), duplicate ticket code, missing ticket ID /
+booking email / trek, and person-count sanity.
+
+---
+
+## Search
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/search?q=` | Cross-entity search (min 2 chars). Members are scoped to their own records; member and trek registries are admin-only. |
+
+Returns `{ hits: [{ type, id, title, subtitle, link, badge }], term }` where
+`type` ∈ `ticket, member, trek, comment, document`. Search terms are sanitised
+before entering PostgREST filter strings.
+
+---
+
+## Contact (public)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/contact` | Unauthenticated. `{ name, email, message }`. Rate-limited to **5/hour/IP**; input is HTML-escaped before emailing. `202` on accept. |
+
+---
+
 ## Health
 
 `GET /health` → `{ "ok": true, "service": "antariksha-api", "ts": 1719500000000 }`

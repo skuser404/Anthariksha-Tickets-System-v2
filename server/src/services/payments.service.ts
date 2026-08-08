@@ -53,7 +53,8 @@ export async function recordPayment(adminId: string, raw: unknown, ip?: string |
     userId: input.memberId,
     title: 'Payment received 💸',
     body: `${inr(input.amount)} paid via ${input.method.replace('_', ' ')}. Receipt ${data.receipt_no}.`,
-    link: '/payments',
+    // The member-facing payment history page is /earnings; /payments is admin-only.
+    link: '/earnings',
   });
 
   return data;

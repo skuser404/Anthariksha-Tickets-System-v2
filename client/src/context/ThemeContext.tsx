@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { applyAccent, type AccentKey } from '@/lib/accents';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -44,20 +44,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('antariksha.accent', accent);
   }, [accent]);
 
-  return (
-    <ThemeContext.Provider
-      value={{
-        mode,
-        resolved,
-        accent,
-        setMode,
-        setAccent: setAccentState,
-        toggle: () => setMode(resolved === 'dark' ? 'light' : 'dark'),
-      }}
-    >
-      {children}
-    </ThemeContext.Provider>
+  // Memoised so consumers (and their useMemo deps) don't churn on every render.
+  const value = useMemo<ThemeState>(
+    () => ({
+      mode,
+      resolved,
+      accent,
+      setMode,
+      setAccent: setAccentState,
+      toggle: () => setMode(resolved === 'dark' ? 'light' : 'dark'),
+    }),
+    [mode, resolved, accent],
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

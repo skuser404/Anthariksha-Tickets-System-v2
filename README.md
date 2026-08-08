@@ -309,6 +309,21 @@ See [docs/API.md](docs/API.md) for the REST reference and
 
 ## Deployment
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel + Railway instructions.
-#   A n t h a r i k s h a - T i c k e t s - s y s t e m  
- 
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Vercel + Render instructions.
+
+## Google Drive (permit documents)
+
+Ticket permits are stored in Google Drive via a service account, filed under
+`<root>/YYYY/Month/DD-MM-YYYY - Trek/Member Name/Ticket.pdf`.
+
+**Use a Shared Drive** — service accounts have no personal storage quota, so a
+My Drive folder fails with `storageQuotaExceeded`.
+
+Required on the API server:
+
+| Variable | Purpose |
+| --- | --- |
+| `GOOGLE_DRIVE_CREDENTIALS` | Service-account JSON key (raw or base64). Never stored in the database. |
+| `GOOGLE_DRIVE_ROOT_FOLDER_ID` | Root folder ID (the Settings page can override it). |
+
+Full walkthrough: **[docs/GOOGLE_DRIVE_SETUP.md](docs/GOOGLE_DRIVE_SETUP.md)**.

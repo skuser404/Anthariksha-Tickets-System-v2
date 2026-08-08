@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, UserPlus, Loader2, Search, Power, ExternalLink, KeyRound, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, apiError } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
 import { Button, Card, CardTitle, EmptyState, Input, Label, Skeleton } from '@/components/ui';
 import { formatDate, inr } from '@/lib/utils';
 
@@ -22,7 +21,6 @@ interface Member {
 }
 
 export default function MembersPage() {
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);

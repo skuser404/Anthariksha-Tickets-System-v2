@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Ticket, Users, Receipt, BadgeIndianRupee, RotateCcw, TrendingUp, Wallet,
-  Clock, PiggyBank, ShieldCheck, UserCheck, Ban, Repeat, CalendarDays,
+  Clock, PiggyBank, UserCheck, Ban, Repeat, CalendarDays,
 } from 'lucide-react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,

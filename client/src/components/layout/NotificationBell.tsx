@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -10,12 +11,14 @@ interface Notif {
   title: string;
   body: string;
   is_read: boolean;
+  link: string | null;
   created_at: string;
 }
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const { data } = useQuery({
     queryKey: ['notifications'],
@@ -25,6 +28,10 @@ export function NotificationBell() {
 
   const markAll = useMutation({
     mutationFn: async () => api.post('/notifications/read-all'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+  const markOne = useMutation({
+    mutationFn: async (id: string) => api.post(`/notifications/${id}/read`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
@@ -59,11 +66,21 @@ export function NotificationBell() {
                 <p className="p-6 text-center text-sm text-slate-500">You're all caught up 🎉</p>
               )}
               {data?.items.map((n) => (
-                <div key={n.id} className={`px-4 py-3 ${n.is_read ? 'opacity-60' : 'bg-brand-500/5'}`}>
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => {
+                    if (!n.is_read) markOne.mutate(n.id);
+                    setOpen(false);
+                    // Notifications carry a deep link (ticket, refund, payout…); follow it.
+                    if (n.link) navigate(n.link);
+                  }}
+                  className={`block w-full px-4 py-3 text-left transition hover:bg-white/5 ${n.is_read ? 'opacity-60' : 'bg-brand-500/5'}`}
+                >
                   <p className="text-sm font-medium">{n.title}</p>
                   <p className="text-xs text-slate-500">{n.body}</p>
                   <p className="mt-1 text-[10px] text-slate-400">{formatDate(n.created_at)}</p>
-                </div>
+                </button>
               ))}
             </div>
           </div>

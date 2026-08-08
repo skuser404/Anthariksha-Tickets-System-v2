@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Ticket, PlusCircle, ShieldCheck, Mountain, Search,
   Menu, X, Wallet, RotateCcw, IndianRupee, BarChart3, FileText, Archive, Repeat,
   Users, ScrollText, Settings as SettingsIcon, Bell, UserCircle, LifeBuoy, Ban,
-  BookLock, Trophy, Activity, CalendarDays, Crown,
+  BookLock, Trophy, Activity, CalendarDays, Crown, HardDrive,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -59,7 +59,11 @@ export function DashboardLayout() {
   const [open, setOpen] = useState(false);
 
   const nav = user?.role === 'admin'
-    ? (user.isSuper ? [...adminNav, { to: '/admin/admins', label: 'Admin Management', icon: Crown }] : adminNav)
+    ? (user.isSuper
+        ? [...adminNav,
+            { to: '/admin/admins', label: 'Admin Management', icon: Crown },
+            { to: '/admin/drive', label: 'Google Drive', icon: HardDrive }]
+        : adminNav)
     : memberNav;
 
   return (
@@ -73,7 +77,7 @@ export function DashboardLayout() {
         )}
       >
         <div className="mb-6 flex items-center gap-2 px-2">
-          <img src="/logo.png" alt="Antariksha" className="h-9 w-9 rounded-lg object-contain" />
+          <img src="/logo.webp" alt="Antariksha" width={36} height={36} className="h-9 w-9 rounded-lg object-contain" />
           <div>
             <p className="text-sm font-bold leading-tight">Antariksha</p>
             <p className="text-[11px] text-slate-500">Trek Operations</p>

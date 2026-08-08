@@ -21,6 +21,9 @@ import ledgerRoutes from './routes/ledger.routes.js';
 import intelRoutes from './routes/intel.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
 import adminRoutes from './routes/admins.routes.js';
+import contactRoutes from './routes/contact.routes.js';
+import documentRoutes, { documentContentRouter } from './routes/documents.routes.js';
+import searchRoutes from './routes/search.routes.js';
 
 export function createApp() {
   const app = express();
@@ -48,6 +51,10 @@ export function createApp() {
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'antariksha-api', ts: Date.now() }));
 
   app.use('/api/auth', authRoutes);
+  // Must precede ticketRoutes: that router applies requireAuth to every
+  // /api/tickets/* path, and the document preview authenticates with its own
+  // short-lived view token instead of a session token.
+  app.use('/api', documentContentRouter);
   app.use('/api/tickets', ticketRoutes);
   app.use('/api/treks', trekRoutes);
   app.use('/api/dashboard', dashboardRoutes);
@@ -64,6 +71,11 @@ export function createApp() {
   app.use('/api/intel', intelRoutes);
   app.use('/api/calendar', calendarRoutes);
   app.use('/api/admins', adminRoutes);
+  app.use('/api/search', searchRoutes);
+  app.use('/api/contact', contactRoutes); // public (unauthenticated), heavily rate-limited
+  // Permit documents in Google Drive + Drive configuration. Mounted at /api so
+  // it can own both /api/tickets/:id/documents and /api/drive/*.
+  app.use('/api', documentRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

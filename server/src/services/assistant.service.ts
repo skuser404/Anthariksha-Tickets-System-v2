@@ -7,7 +7,6 @@ export interface AssistantAnswer {
   matched: string;
 }
 
-const monthKey = (iso: string) => iso.slice(0, 7);
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 /**

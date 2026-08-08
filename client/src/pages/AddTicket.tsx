@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Calculator, Info, CalendarCheck } from 'lucide-react';
+import { Loader2, Calculator, Info, CalendarCheck, UploadCloud, FileText, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, apiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,8 @@ interface Trek {
 interface Member { id: string; full_name: string; email: string }
 
 const COMMISSION_PER_PERSON = 50;
+const ACCEPTED = ['application/pdf', 'image/jpeg', 'image/png'];
+const MAX_BYTES = 10 * 1024 * 1024;
 
 export default function AddTicketPage() {
   const navigate = useNavigate();
@@ -38,6 +40,22 @@ export default function AddTicketPage() {
   });
 
   const [celebrate, setCelebrate] = useState(false);
+  const [permit, setPermit] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function pickFile(f: File | null) {
+    if (!f) return setPermit(null);
+    if (!ACCEPTED.includes(f.type)) {
+      toast.error('Please upload a PDF, JPG or PNG.');
+      return;
+    }
+    if (f.size > MAX_BYTES) {
+      toast.error('File is too large (max 10 MB).');
+      return;
+    }
+    setPermit(f);
+  }
   const [form, setForm] = useState({
     memberId: '',
     ticketCode: '',
@@ -68,7 +86,9 @@ export default function AddTicketPage() {
     mutationFn: async () => {
       if (!selectedTrek) throw new Error('Please select a trek');
       if (isAdmin && !form.memberId) throw new Error('Please select the member this ticket belongs to');
-      return api.post('/tickets', {
+      if (!permit) throw new Error('Please attach the permit document (PDF, JPG or PNG)');
+
+      const res = await api.post('/tickets', {
         memberId: isAdmin ? form.memberId : undefined,
         ticketCode: form.ticketCode.trim(),
         trekId: selectedTrek.id,
@@ -79,6 +99,24 @@ export default function AddTicketPage() {
         persons: form.persons,
         remarks: form.remarks || undefined,
       });
+
+      // The ticket exists now; push the permit to Google Drive against its id.
+      // If this fails the ticket survives and the permit can be re-attached
+      // from the ticket page, so the member never loses their data entry.
+      const ticketId = res.data.data.id as string;
+      const body = new FormData();
+      body.append('file', permit);
+      setUploading(true);
+      try {
+        await api.post(`/tickets/${ticketId}/documents`, body);
+      } catch (err) {
+        throw new Error(
+          `Ticket ${form.ticketCode} was saved, but the permit upload failed: ${apiError(err)} — open the ticket to attach it again.`,
+        );
+      } finally {
+        setUploading(false);
+      }
+      return res;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] });
@@ -195,6 +233,50 @@ export default function AddTicketPage() {
             </div>
           )}
 
+          {/* Permit document — uploaded to Google Drive on submit */}
+          <div>
+            <Label>Permit document *</Label>
+            {permit ? (
+              <div className="flex items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-500/5 p-3">
+                <FileText className="shrink-0 text-brand-500" size={20} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{permit.name}</p>
+                  <p className="text-xs text-slate-500">{(permit.size / 1024).toFixed(0)} KB · {permit.type.split('/')[1].toUpperCase()}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove file"
+                  onClick={() => { setPermit(null); if (fileRef.current) fileRef.current.value = ''; }}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-rose-500"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); pickFile(e.dataTransfer.files?.[0] ?? null); }}
+                className="flex w-full flex-col items-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center transition hover:border-brand-500 hover:bg-brand-500/5 dark:border-slate-700"
+              >
+                <UploadCloud className="text-brand-500" size={26} />
+                <span className="text-sm font-medium">Click to upload or drag your permit here</span>
+                <span className="text-xs text-slate-500">PDF, JPG or PNG · max 10 MB</span>
+              </button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+              className="hidden"
+              onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Stored securely in Google Drive under {form.trekDate ? formatDate(form.trekDate) : 'the trek date'} → {selectedTrek?.name ?? 'trek'} → your name.
+            </p>
+          </div>
+
           <div>
             <Label>Remarks</Label>
             <Textarea rows={2} value={form.remarks} onChange={set('remarks')} placeholder="Optional notes…" />
@@ -228,8 +310,9 @@ export default function AddTicketPage() {
             <Button type="button" variant="outline" onClick={() => navigate('/tickets')}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending && <Loader2 className="animate-spin" size={16} />} Submit Ticket
+            <Button type="submit" disabled={mutation.isPending || !permit}>
+              {mutation.isPending && <Loader2 className="animate-spin" size={16} />}
+              {uploading ? 'Uploading permit…' : 'Submit Ticket'}
             </Button>
           </div>
         </form>

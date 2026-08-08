@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Search, LayoutDashboard, Ticket, PlusCircle, Wallet, RotateCcw, Bell, UserCircle,
   ShieldCheck, Users, FileText, BarChart3, IndianRupee, Mountain, ScrollText,
   Settings as SettingsIcon, Archive, Repeat, Moon, CornerDownLeft,
-  BookLock, Trophy, Activity, CalendarDays,
+  BookLock, Trophy, Activity, CalendarDays, MessageSquare, Loader2,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -17,6 +19,26 @@ interface Cmd {
   run: () => void;
   admin?: boolean;
 }
+
+interface SearchHit {
+  type: 'ticket' | 'member' | 'trek' | 'comment' | 'payment' | 'document';
+  id: string;
+  title: string;
+  subtitle: string;
+  link: string;
+  badge?: string;
+}
+
+type Row = { kind: 'command'; cmd: Cmd } | { kind: 'hit'; hit: SearchHit };
+
+const HIT_ICON: Record<SearchHit['type'], typeof Ticket> = {
+  ticket: Ticket,
+  member: Users,
+  trek: Mountain,
+  comment: MessageSquare,
+  payment: Wallet,
+  document: FileText,
+};
 
 export function CommandPalette() {
   const navigate = useNavigate();
@@ -47,7 +69,7 @@ export function CommandPalette() {
     }
   }, [open]);
 
-  const go = (path: string) => () => { setOpen(false); navigate(path); };
+  const go = useCallback((path: string) => () => { setOpen(false); navigate(path); }, [navigate]);
 
   const commands: Cmd[] = useMemo(() => {
     const isAdmin = user?.role === 'admin';
@@ -79,10 +101,38 @@ export function CommandPalette() {
       { label: 'Settings', icon: SettingsIcon, run: go('/admin/settings'), admin: true },
     ];
     return isAdmin ? [...common, ...admin] : common;
-  }, [user]);
+  }, [user, go, toggle]);
 
   const filtered = commands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()));
-  useEffect(() => { if (active >= filtered.length) setActive(0); }, [filtered.length, active]);
+
+  // Debounced so typing doesn't fire a request per keystroke.
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 220);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { data: search, isFetching } = useQuery({
+    queryKey: ['global-search', debounced],
+    enabled: open && debounced.length >= 2,
+    staleTime: 20_000,
+    queryFn: async () =>
+      (await api.get('/search', { params: { q: debounced } })).data.data as { hits: SearchHit[] },
+  });
+
+  const hits = search?.hits ?? [];
+  // Commands first, then live records — one flat list so ↑/↓ crosses both.
+  const rows: Row[] = [
+    ...filtered.map((c) => ({ kind: 'command' as const, cmd: c })),
+    ...hits.map((h) => ({ kind: 'hit' as const, hit: h })),
+  ];
+
+  const runRow = (r: Row) => {
+    if (r.kind === 'command') r.cmd.run();
+    else { setOpen(false); navigate(r.hit.link); }
+  };
+
+  useEffect(() => { if (active >= rows.length) setActive(0); }, [rows.length, active]);
 
   return (
     <AnimatePresence>
@@ -109,30 +159,64 @@ export function CommandPalette() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, rows.length - 1)); }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-                  if (e.key === 'Enter') { e.preventDefault(); filtered[active]?.run(); }
+                  if (e.key === 'Enter') { e.preventDefault(); if (rows[active]) runRow(rows[active]); }
                 }}
-                placeholder="Type a command or search…"
+                placeholder="Search tickets, members, treks, comments…"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
               />
+              {isFetching && <Loader2 size={14} className="animate-spin text-slate-400" />}
               <kbd className="rounded-md border border-white/15 px-1.5 py-0.5 text-[10px] text-slate-400">ESC</kbd>
             </div>
             <div className="max-h-80 overflow-y-auto p-2">
-              {filtered.length === 0 && <p className="p-6 text-center text-sm text-slate-500">No matching commands</p>}
-              {filtered.map((c, i) => (
-                <button
-                  key={c.label}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={c.run}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${i === active ? 'bg-brand-500/15 text-brand-500' : 'hover:bg-white/5'}`}
-                >
-                  <c.icon size={16} className={i === active ? 'text-brand-500' : 'text-slate-400'} />
-                  <span className="flex-1 text-left text-current">{c.label}</span>
-                  {c.hint && <span className="text-[10px] text-slate-400">{c.hint}</span>}
-                  {i === active && <CornerDownLeft size={14} className="text-brand-500" />}
-                </button>
-              ))}
+              {rows.length === 0 && (
+                <p className="p-6 text-center text-sm text-slate-500">
+                  {query.trim().length >= 2 ? 'No matches found' : 'Type at least 2 characters to search'}
+                </p>
+              )}
+
+              {filtered.length > 0 && (
+                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Commands</p>
+              )}
+              {rows.map((r, i) =>
+                r.kind === 'command' ? (
+                  <button
+                    key={`c-${r.cmd.label}`}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => runRow(r)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${i === active ? 'bg-brand-500/15 text-brand-500' : 'hover:bg-white/5'}`}
+                  >
+                    <r.cmd.icon size={16} className={i === active ? 'text-brand-500' : 'text-slate-400'} />
+                    <span className="flex-1 text-left text-current">{r.cmd.label}</span>
+                    {r.cmd.hint && <span className="text-[10px] text-slate-400">{r.cmd.hint}</span>}
+                    {i === active && <CornerDownLeft size={14} className="text-brand-500" />}
+                  </button>
+                ) : (
+                  <div key={`h-${r.hit.type}-${r.hit.id}`}>
+                    {/* Section heading before the first live result */}
+                    {rows[i - 1]?.kind === 'command' && (
+                      <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Results</p>
+                    )}
+                    <button
+                      onMouseEnter={() => setActive(i)}
+                      onClick={() => runRow(r)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${i === active ? 'bg-brand-500/15 text-brand-500' : 'hover:bg-white/5'}`}
+                    >
+                      {(() => { const I = HIT_ICON[r.hit.type]; return <I size={16} className={i === active ? 'text-brand-500' : 'text-slate-400'} />; })()}
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-current">{r.hit.title}</span>
+                        <span className="block truncate text-[11px] text-slate-400">{r.hit.subtitle}</span>
+                      </span>
+                      {r.hit.badge && (
+                        <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] capitalize text-slate-400">
+                          {r.hit.badge.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           </motion.div>
         </motion.div>

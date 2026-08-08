@@ -63,10 +63,15 @@ router.post(
   '/:id/verify',
   requireRole('admin'),
   asyncHandler(async (req, res) => {
-    const { decision, remarks } = z
-      .object({ decision: z.enum(['approved', 'not_confirmed']), remarks: z.string().optional() })
+    const { decision, remarks, override } = z
+      .object({
+        decision: z.enum(['approved', 'not_confirmed']),
+        // Required for a rejection; enforced in the service so bulk paths share it.
+        remarks: z.string().max(1000).optional(),
+        override: z.boolean().optional(),
+      })
       .parse(req.body);
-    const updated = await tickets.verifyTicket(req.user!.sub, req.params.id, decision, remarks, req.ip);
+    const updated = await tickets.verifyTicket(req.user!.sub, req.params.id, decision, remarks, req.ip, override);
     ok(res, updated);
   }),
 );
@@ -77,7 +82,17 @@ router.post(
   requireRole('admin'),
   asyncHandler(async (req, res) => {
     const { ids, decision, remarks } = z
-      .object({ ids: z.array(z.string().uuid()).min(1), decision: z.enum(['approved', 'not_confirmed']), remarks: z.string().optional() })
+      .object({
+        ids: z.array(z.string().uuid()).min(1),
+        decision: z.enum(['approved', 'not_confirmed']),
+        remarks: z.string().max(1000).optional(),
+      })
+      // Without this the service would reject every ticket individually and
+      // report them all as "skipped" with no explanation.
+      .refine((b) => b.decision !== 'not_confirmed' || Boolean(b.remarks?.trim()), {
+        message: 'A reason is required when rejecting tickets.',
+        path: ['remarks'],
+      })
       .parse(req.body);
     ok(res, await tickets.bulkVerify(req.user!.sub, ids, decision, remarks, req.ip));
   }),
@@ -120,12 +135,15 @@ router.post(
   }),
 );
 
-// Ticket lifecycle timeline (admin or the owning member).
+// Ticket lifecycle timeline (admin or the owning member only).
 router.get(
   '/:id/timeline',
   asyncHandler(async (req, res) => {
     const result = await tickets.ticketTimeline(req.params.id);
-    if (req.user!.role !== 'admin' && result.ticket.member_id !== req.user!.sub) {
+    if (req.user!.role !== 'admin') {
+      // Don't leak another member's ticket (code, booking email, commission…).
+      if (result.ticket.member_id !== req.user!.sub) throw new ApiError(403, 'Not your ticket');
+      // Owners see their own timeline, but the admin audit trail stays internal.
       return ok(res, { ticket: result.ticket, steps: result.steps, logs: [] });
     }
     ok(res, result);

@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase.js';
 import { audit, notify } from '../lib/audit.js';
 import { postLedger } from '../lib/ledger.js';
 import { computeTicketFlags } from '../lib/verification.js';
+import { runVerificationChecks } from './documents.service.js';
+import { orIlike } from '../lib/postgrest.js';
 
 const COMMISSION_PER_PERSON = 50;
 
@@ -178,9 +180,9 @@ export async function listTickets(filters: ListFilters) {
   if (filters.from) q = q.gte('trek_date', filters.from);
   if (filters.to) q = q.lte('trek_date', filters.to);
   if (filters.search) {
-    q = q.or(
-      `ticket_code.ilike.%${filters.search}%,booking_email.ilike.%${filters.search}%,trek_name.ilike.%${filters.search}%`,
-    );
+    // Sanitised: commas/parens/dots are PostgREST filter syntax, so a raw term
+    // could otherwise restructure this `or` group.
+    q = q.or(orIlike(['ticket_code', 'booking_email', 'trek_name'], filters.search));
   }
 
   const { data, count, error } = await q;
@@ -194,11 +196,37 @@ export async function verifyTicket(
   decision: 'approved' | 'not_confirmed',
   remarks: string | undefined,
   ip?: string | null,
+  override = false,
 ) {
   const { data: ticket } = await supabase.from('tickets').select('*').eq('id', ticketId).maybeSingle();
   if (!ticket) throw new ApiError(404, 'Ticket not found');
   if (ticket.status !== 'pending_verification') {
     throw new ApiError(409, `Ticket already ${ticket.status}`);
+  }
+
+  // A rejection is only actionable if the member is told what to fix.
+  if (decision === 'not_confirmed' && !remarks?.trim()) {
+    throw new ApiError(422, 'A reason is required when rejecting a ticket.');
+  }
+
+  // Approval runs the full pre-approval checklist server-side. The UI shows the
+  // same results, but the gate lives here so it cannot be clicked past.
+  if (decision === 'approved') {
+    const { checks, blocking } = await runVerificationChecks(ticketId);
+    if (blocking > 0 && !override) {
+      const failed = checks.filter((c) => c.severity === 'danger').map((c) => c.message);
+      throw new ApiError(422, `Cannot approve — ${blocking} check(s) failed: ${failed.join(' ')}`, { checks });
+    }
+    if (blocking > 0 && override) {
+      await audit({
+        actorId: adminId,
+        action: 'ticket.approve_override',
+        entity: 'ticket',
+        entityId: ticketId,
+        metadata: { failed: checks.filter((c) => c.severity === 'danger').map((c) => c.code), reason: remarks ?? null },
+        ip,
+      });
+    }
   }
 
   const { data, error } = await supabase
@@ -208,6 +236,7 @@ export async function verifyTicket(
       verified_by: adminId,
       verified_at: new Date().toISOString(),
       remarks: remarks ?? ticket.remarks,
+      rejection_reason: decision === 'not_confirmed' ? remarks!.trim() : null,
     })
     .eq('id', ticketId)
     .select('*')
@@ -243,8 +272,8 @@ export async function verifyTicket(
     body:
       decision === 'approved'
         ? `Ticket ${ticket.ticket_code} approved. ₹${Number(ticket.commission_amount).toFixed(0)} commission added.`
-        : `Ticket ${ticket.ticket_code} could not be confirmed.${remarks ? ' ' + remarks : ''}`,
-    link: '/tickets',
+        : `Ticket ${ticket.ticket_code} was rejected. Reason: ${remarks!.trim()}`,
+    link: `/tickets/${ticketId}`,
   });
 
   return data;

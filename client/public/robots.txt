@@ -12,4 +12,6 @@ Disallow: /refunds
 Disallow: /notifications
 Disallow: /profile
 
-Sitemap: /sitemap.xml
+# The Sitemap directive must be an absolute URL — a relative path is invalid.
+# Update the host if you deploy to a custom domain.
+Sitemap: https://antariksha.vercel.app/sitemap.xml

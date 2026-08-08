@@ -42,3 +42,11 @@ services:
         sync: false
       - key: MAIL_FROM
         value: "Antariksha Ops <antharikshatrekkers@gmail.com>"
+      - key: SUPPORT_EMAIL
+        sync: false
+      # --- Google Drive (permit document storage) ---
+      # Service-account JSON key (raw or base64). Set in the dashboard.
+      - key: GOOGLE_DRIVE_CREDENTIALS
+        sync: false
+      - key: GOOGLE_DRIVE_ROOT_FOLDER_ID
+        sync: false

@@ -6,7 +6,8 @@ export function notFound(_req: Request, res: Response) {
   fail(res, 404, 'Route not found');
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// The 4-arg signature is what marks this as Express error-handling middleware,
+// so `_next` must stay even though it is unused.
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) {
     return fail(res, 422, 'Validation failed', err.flatten());
@@ -14,7 +15,6 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (err instanceof ApiError) {
     return fail(res, err.status, err.message, err.details);
   }
-  // eslint-disable-next-line no-console
   console.error('Unhandled error:', err);
   return fail(res, 500, 'Internal server error');
 }

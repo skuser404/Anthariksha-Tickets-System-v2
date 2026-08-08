@@ -3,8 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- The logo is the landing page's LCP element; preload it so it is not
+         discovered late in the render. -->
+    <link rel="preload" as="image" href="/logo.webp" type="image/webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Webfont: preconnect so the TLS handshake overlaps with HTML parsing.
+         Loaded non-blocking (media=print + onload swap) so it never delays
+         first paint; text renders immediately in the fallback stack. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    </noscript>
     <meta name="theme-color" content="#2563eb" />
     <meta name="robots" content="index, follow" />
 
@@ -26,6 +44,24 @@
     <meta name="twitter:title" content="Antariksha — Trek Operations & Commission Management" />
     <meta name="twitter:description" content="Secure internal platform for trek-permit tracking, verification, commissions, refunds and reporting." />
     <meta name="twitter:image" content="/logo.png" />
+    <!--
+      Apply the stored theme before first paint. Without this the `dark` class is
+      only set in a React effect, so every load flashes the light theme first.
+      Keep the storage keys in sync with src/context/ThemeContext.tsx.
+    -->
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('antariksha.theme') || 'dark';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* The Inter webfont is loaded from index.html with preconnect. Importing it here
+   instead put it at the end of a serial request chain: bundle CSS must download
+   and parse before the font CSS is even discovered (~600ms of blocked render). */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,6 +41,26 @@ body {
 }
 .dark body { @apply text-slate-100; }
 
+/* ------------------------------------------------- Secondary-text contrast */
+/* `text-slate-500` (#64748B) is the app-wide secondary-text colour. On the dark
+   surfaces it only reaches 3.75:1–4.23:1, below the WCAG AA 4.5:1 minimum for
+   body text. Lifting it to slate-400 in dark mode reaches ~7:1 on every surface
+   without touching the ~100 call sites individually. */
+.dark .text-slate-500 { color: rgb(148 163 184); }
+/* slate-400 on dark is used for tertiary text; nudge it up to keep the
+   hierarchy distinct now that slate-500 occupies that value. */
+.dark .text-slate-400 { color: rgb(170 183 202); }
+/* The mirror problem in light mode: slate-400 (#94A3B8) on white is only
+   2.85:1. slate-500 reaches 4.77:1 and keeps the same visual hierarchy. */
+html:not(.dark) .text-slate-400 { color: rgb(100 116 139); }
+
+/* Accent-coloured text (links, inline emphasis) on light surfaces. The 500
+   shade is 3.7:1 on white — too light. The 700 shade is the only step that
+   clears 4.5:1 for every accent in the palette (emerald/orange/pink 600 all
+   fail), so it is used for text while buttons keep their solid 600 fill. */
+html:not(.dark) .text-brand-500,
+html:not(.dark) .text-brand-600 { color: rgb(var(--brand-700)); }
+
 /* ---------------------------------------------------------------- Card */
 /* Clean enterprise card: thin border + soft shadow, no heavy blur, 16px radius. */
 .glass {
@@ -78,9 +100,23 @@ body {
   animation: shimmer 1.6s infinite;
 }
 
+/* ------------------------------------------------- Landing entrance animation
+   The public landing page uses these instead of framer-motion. Keeping that
+   library off the anonymous entry path is worth ~110 KB of JS that would
+   otherwise block first paint for every visitor. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.rise { animation: rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rise-1 { animation-delay: 50ms; }
+.rise-2 { animation-delay: 100ms; }
+.rise-3 { animation-delay: 150ms; }
+
 @media (prefers-reduced-motion: reduce) {
   .shimmer::after { animation: none; }
   .lift:hover { transform: none; }
+  .rise { animation: none; }
 }
 
 /* Visible keyboard focus for accessibility. */

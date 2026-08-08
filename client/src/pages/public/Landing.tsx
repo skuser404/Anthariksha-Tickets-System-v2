@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   ShieldCheck, Ticket, Wallet, RotateCcw, BarChart3, BookLock, ArrowRight,
   CheckCircle2, ChevronDown, Mountain,
@@ -38,25 +37,28 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-28">
-          <motion.img
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            src="/logo.png" alt="Antariksha" className="mx-auto mb-6 h-20 w-20 rounded-2xl object-contain"
+          {/* LCP element: explicit dimensions prevent layout shift, and
+              fetchPriority/eager stop it being deprioritised behind the JS. */}
+          <img
+            src="/logo.webp" alt="Antariksha" width={80} height={80}
+            loading="eager" fetchPriority="high" decoding="async"
+            className="rise mx-auto mb-6 h-20 w-20 rounded-2xl object-contain"
           />
-          <motion.h1 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="rise rise-1 mx-auto max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl">
             Trek Operations & Commission Management
-          </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mx-auto mt-4 max-w-2xl text-lg text-slate-500">
+          </h1>
+          <p className="rise rise-2 mx-auto mt-4 max-w-2xl text-lg text-slate-500">
             A private, secure platform for tracking permit submissions, verification, member
             commissions, refunds and settlements — with a complete, immutable audit trail.
-          </motion.p>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          </p>
+          <div className="rise rise-3 mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/login" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 font-medium text-white hover:bg-brand-700">
               Member Login <ArrowRight size={16} />
             </Link>
             <Link to="/login?admin=1" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-5 py-2.5 font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
               <ShieldCheck size={16} /> Admin Login
             </Link>
-          </motion.div>
+          </div>
           <p className="mt-4 text-xs text-slate-400">Private internal portal · accounts are created by administrators</p>
         </div>
       </section>

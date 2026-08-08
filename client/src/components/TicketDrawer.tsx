@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, AlertTriangle, Tag as TagIcon, StickyNote, Plus, Loader2, Check, Ban } from 'lucide-react';
+import { X, AlertTriangle, Tag as TagIcon, StickyNote, Plus, Loader2, Check, Ban, FileCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, apiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Button, Tag, StatusBadge } from '@/components/ui';
+import { Button, Tag, StatusBadge, Textarea, Label } from '@/components/ui';
 import { Timeline, type TimelineStep } from '@/components/Timeline';
 import { TicketComments } from '@/components/TicketComments';
+import { TicketDocument, VerificationChecklist, type VerificationCheck } from '@/components/TicketDocument';
 import { PRESET_TAGS, formatDate, inr } from '@/lib/utils';
 
 interface TicketLite {
@@ -32,6 +33,9 @@ export function TicketDrawer({ ticket, onClose, onVerified }: { ticket: TicketLi
   const qc = useQueryClient();
   const [note, setNote] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [decision, setDecision] = useState<'approved' | 'not_confirmed' | null>(null);
+  const [reason, setReason] = useState('');
+  const [checks, setChecks] = useState<{ checks: VerificationCheck[]; blocking: number }>({ checks: [], blocking: 0 });
 
   const id = ticket?.id;
 
@@ -60,12 +64,15 @@ export function TicketDrawer({ ticket, onClose, onVerified }: { ticket: TicketLi
   });
 
   const verify = useMutation({
-    mutationFn: async (decision: 'approved' | 'not_confirmed') =>
-      api.post(`/tickets/${id}/verify`, { decision, remarks: decision === 'not_confirmed' ? window.prompt('Reason (optional):') ?? undefined : undefined }),
-    onSuccess: (_d, decision) => {
+    mutationFn: async (v: { decision: 'approved' | 'not_confirmed'; remarks?: string; override?: boolean }) =>
+      api.post(`/tickets/${id}/verify`, v),
+    onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['admin-tickets'] });
       qc.invalidateQueries({ queryKey: ['timeline', id] });
-      toast.success(decision === 'approved' ? 'Approved' : 'Rejected');
+      qc.invalidateQueries({ queryKey: ['verification-checks', id] });
+      toast.success(v.decision === 'approved' ? 'Ticket approved — commission credited' : 'Ticket rejected');
+      setDecision(null);
+      setReason('');
       onVerified?.();
     },
     onError: (e) => toast.error(apiError(e)),
@@ -118,15 +125,82 @@ export function TicketDrawer({ ticket, onClose, onVerified }: { ticket: TicketLi
               <Detail label="Commission" value={inr(ticket.commission_amount)} />
             </div>
 
+            {/* Permit document (Google Drive) */}
+            <div className="mb-5">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                <FileCheck size={13} /> Permit document
+              </p>
+              <TicketDocument ticketId={ticket.id} onChecks={setChecks} />
+            </div>
+
+            {/* Pre-approval checklist (admin) */}
+            {isAdmin && checks.checks.length > 0 && (
+              <div className="mb-5 rounded-2xl border border-white/10 p-3">
+                <p className="mb-2 text-xs font-semibold text-slate-500">Verification checklist</p>
+                <VerificationChecklist checks={checks.checks} />
+              </div>
+            )}
+
             {/* Verify actions */}
             {isAdmin && ticket.status === 'pending_verification' && (
-              <div className="mb-5 flex gap-2">
-                <Button variant="success" className="flex-1" disabled={verify.isPending} onClick={() => verify.mutate('approved')}>
-                  {verify.isPending ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />} Approve
-                </Button>
-                <Button variant="danger" className="flex-1" disabled={verify.isPending} onClick={() => verify.mutate('not_confirmed')}>
-                  <Ban size={16} /> Reject
-                </Button>
+              <div className="mb-5 space-y-2">
+                {decision === null ? (
+                  <div className="flex gap-2">
+                    <Button variant="success" className="flex-1" onClick={() => setDecision('approved')}>
+                      <Check size={16} /> Approve
+                    </Button>
+                    <Button variant="danger" className="flex-1" onClick={() => setDecision('not_confirmed')}>
+                      <Ban size={16} /> Reject
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 rounded-2xl border border-white/10 p-3">
+                    <Label>
+                      {decision === 'approved'
+                        ? checks.blocking > 0
+                          ? `Override ${checks.blocking} failed check(s) — justification required`
+                          : 'Approval note (optional)'
+                        : 'Rejection reason (required) *'}
+                    </Label>
+                    <Textarea
+                      rows={3}
+                      autoFocus
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder={decision === 'approved' ? 'Why this is safe to approve…' : 'e.g. The permit PDF is for a different trek date.'}
+                    />
+                    {decision === 'approved' && checks.blocking > 0 && (
+                      <p className="flex items-start gap-1.5 text-xs text-rose-500">
+                        <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                        {checks.blocking} blocking check(s) failed. Approving anyway is recorded in the audit log.
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        variant={decision === 'approved' ? 'success' : 'danger'}
+                        className="flex-1"
+                        disabled={
+                          verify.isPending ||
+                          (decision === 'not_confirmed' && !reason.trim()) ||
+                          (decision === 'approved' && checks.blocking > 0 && !reason.trim())
+                        }
+                        onClick={() =>
+                          verify.mutate({
+                            decision,
+                            remarks: reason.trim() || undefined,
+                            override: decision === 'approved' && checks.blocking > 0,
+                          })
+                        }
+                      >
+                        {verify.isPending ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                        Confirm {decision === 'approved' ? 'approval' : 'rejection'}
+                      </Button>
+                      <Button variant="outline" onClick={() => { setDecision(null); setReason(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

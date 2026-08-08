@@ -69,6 +69,7 @@ create table if not exists users (
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+drop trigger if exists trg_users_updated on users;
 create trigger trg_users_updated before update on users
   for each row execute function set_updated_at();
 create index if not exists idx_users_role on users(role);
@@ -115,6 +116,7 @@ create table if not exists trek_pricing (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+drop trigger if exists trg_trek_pricing_updated on trek_pricing;
 create trigger trg_trek_pricing_updated before update on trek_pricing
   for each row execute function set_updated_at();
 
@@ -144,6 +146,7 @@ create table if not exists tickets (
   -- duplicate guard: same official ticket code cannot be submitted twice
   constraint uq_ticket_code unique (ticket_code)
 );
+drop trigger if exists trg_tickets_updated on tickets;
 create trigger trg_tickets_updated before update on tickets
   for each row execute function set_updated_at();
 create index if not exists idx_tickets_member on tickets(member_id);
@@ -158,6 +161,7 @@ begin
   new.commission_amount = new.persons * coalesce(new.commission_per_person, 50);
   return new;
 end $$;
+drop trigger if exists trg_tickets_commission on tickets;
 create trigger trg_tickets_commission before insert or update on tickets
   for each row execute function compute_ticket_commission();
 
@@ -177,6 +181,7 @@ create table if not exists original_tickets (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+drop trigger if exists trg_original_tickets_updated on original_tickets;
 create trigger trg_original_tickets_updated before update on original_tickets
   for each row execute function set_updated_at();
 
@@ -197,6 +202,7 @@ create table if not exists replacement_tickets (
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
+drop trigger if exists trg_replacement_tickets_updated on replacement_tickets;
 create trigger trg_replacement_tickets_updated before update on replacement_tickets
   for each row execute function set_updated_at();
 
@@ -235,6 +241,7 @@ create table if not exists refunds (
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+drop trigger if exists trg_refunds_updated on refunds;
 create trigger trg_refunds_updated before update on refunds
   for each row execute function set_updated_at();
 create index if not exists idx_refunds_status on refunds(status);
@@ -277,6 +284,7 @@ create table if not exists settings (
   value       jsonb not null,
   updated_at  timestamptz not null default now()
 );
+drop trigger if exists trg_settings_updated on settings;
 create trigger trg_settings_updated before update on settings
   for each row execute function set_updated_at();
 

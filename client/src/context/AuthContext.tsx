@@ -12,7 +12,8 @@ export interface SessionUser {
 interface AuthState {
   user: SessionUser | null;
   loading: boolean;
-  setSession: (u: SessionUser, access: string, refresh: string) => void;
+  /** `persist` = "remember me": keep the session across browser restarts. */
+  setSession: (u: SessionUser, access: string, refresh: string, persist?: boolean) => void;
   logout: () => void;
 }
 
@@ -23,15 +24,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('antariksha.user');
+    const stored = tokenStore.user;
     if (stored && tokenStore.access) {
-      setUser(JSON.parse(stored));
-      // Validate the token in the background.
-      api.get('/auth/me').catch(() => {
+      try {
+        // Corrupt/partial storage must not take the whole app down on boot.
+        setUser(JSON.parse(stored) as SessionUser);
+        // Validate the token in the background.
+        api.get('/auth/me').catch(() => {
+          tokenStore.clear();
+          setUser(null);
+        });
+      } catch {
         tokenStore.clear();
-        localStorage.removeItem('antariksha.user');
-        setUser(null);
-      });
+      }
     }
     setLoading(false);
   }, []);
@@ -40,14 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      setSession: (u, access, refresh) => {
-        tokenStore.set(access, refresh);
-        localStorage.setItem('antariksha.user', JSON.stringify(u));
+      setSession: (u, access, refresh, persist = true) => {
+        tokenStore.set(access, refresh, persist);
+        tokenStore.setUser(JSON.stringify(u), persist);
         setUser(u);
       },
       logout: () => {
         tokenStore.clear();
-        localStorage.removeItem('antariksha.user');
         setUser(null);
       },
     }),

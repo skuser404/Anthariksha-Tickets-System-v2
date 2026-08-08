@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mountain, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, apiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -36,7 +36,7 @@ export default function LoginPage() {
   }, [cooldown]);
 
   function finalize(data: any) {
-    setSession(data.user, data.accessToken, data.refreshToken);
+    setSession(data.user, data.accessToken, data.refreshToken, remember);
     toast.success(`Welcome back, ${data.user.name}!`);
     navigate('/');
   }
@@ -96,14 +96,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="app-bg grid min-h-screen place-items-center p-4">
+    <main className="app-bg grid min-h-screen place-items-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass w-full max-w-md p-8"
       >
         <div className="mb-6 flex flex-col items-center text-center">
-          <img src="/logo.png" alt="Antariksha" className="mb-3 h-14 w-14 rounded-2xl object-contain" />
+          <img src="/logo.webp" alt="Antariksha" width={56} height={56} className="mb-3 h-14 w-14 rounded-2xl object-contain" />
           <h1 className="text-xl font-bold">Antariksha Trek Operations</h1>
           <p className="text-sm text-slate-500">Commission Management Portal</p>
           <Link to="/" className="mt-2 text-xs text-brand-500 hover:underline">← Back to home</Link>
@@ -215,6 +215,6 @@ export default function LoginPage() {
           Private internal portal · Accounts are created by administrators
         </p>
       </motion.div>
-    </div>
+    </main>
   );
 }
