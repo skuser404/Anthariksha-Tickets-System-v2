@@ -14,8 +14,18 @@ interface Trek {
   name: string;
   permit_price: number;
   is_active: boolean;
+  district?: string | null;
+  booking_instructions?: string | null;
 }
 interface Member { id: string; full_name: string; email: string }
+interface TrekDate {
+  id: string;
+  trek_id: string;
+  trek_date: string;
+  status: 'available' | 'full' | 'closed';
+  max_persons: number | null;
+  notes: string | null;
+}
 
 const COMMISSION_PER_PERSON = 50;
 const ACCEPTED = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -60,6 +70,7 @@ export default function AddTicketPage() {
     memberId: '',
     ticketCode: '',
     bookingEmail: '',
+    bookingAccountName: '',
     bookingDate: '',
     trekDate: '',
     trekId: '',
@@ -71,7 +82,30 @@ export default function AddTicketPage() {
   const permitTotal = (selectedTrek?.permit_price ?? 0) * form.persons;
   const commission = COMMISSION_PER_PERSON * form.persons;
 
-  // Availability: upcoming booked dates for the chosen trek.
+  // Dates the admin has opened for this trek. Members choose from these only —
+  // there is no free calendar, and the API re-checks the choice on submit.
+  const { data: trekDates, isLoading: datesLoading } = useQuery({
+    queryKey: ['trek-dates', form.trekId],
+    enabled: !!form.trekId,
+    queryFn: async () =>
+      (await api.get('/treks/dates', { params: { trekId: form.trekId } })).data.data as TrekDate[],
+  });
+
+  // Admin-configured cap on the persons dropdown.
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => (await api.get('/settings')).data.data as Record<string, unknown>,
+  });
+  const maxPersons = Math.min(20, Math.max(1, Number(settings?.max_persons_per_ticket ?? 10)));
+
+  const today = new Date().toISOString().slice(0, 10);
+  // Only future, open dates are offered.
+  const openDates = useMemo(
+    () => (trekDates ?? []).filter((d) => d.status === 'available' && d.trek_date >= today),
+    [trekDates, today],
+  );
+
+  // Availability: how many people are already booked on each offered date.
   const { data: availability } = useQuery({
     queryKey: ['availability', selectedTrek?.name],
     enabled: !!selectedTrek,
@@ -94,6 +128,7 @@ export default function AddTicketPage() {
         trekId: selectedTrek.id,
         trekName: selectedTrek.name,
         bookingEmail: form.bookingEmail.trim(),
+        bookingAccountName: form.bookingAccountName.trim() || undefined,
         bookingDate: form.bookingDate,
         trekDate: form.trekDate,
         persons: form.persons,
@@ -176,27 +211,60 @@ export default function AddTicketPage() {
               <Input required type="email" value={form.bookingEmail} onChange={set('bookingEmail')} placeholder="bookings@aranyavihara.test" />
             </div>
             <div>
-              <Label>Booking Date *</Label>
-              <Input required type="date" value={form.bookingDate} onChange={set('bookingDate')} />
+              <Label>Booking Account Name *</Label>
+              <Input
+                required
+                value={form.bookingAccountName}
+                onChange={set('bookingAccountName')}
+                placeholder="Name the permit was booked under"
+              />
             </div>
             <div>
-              <Label>Trek Date *</Label>
-              <Input required type="date" value={form.trekDate} onChange={set('trekDate')} />
+              <Label>Booking Date *</Label>
+              <Input required type="date" value={form.bookingDate} onChange={set('bookingDate')} max={today} />
+              <p className="mt-1 text-xs text-slate-500">The date you booked on the official site.</p>
             </div>
             <div>
               <Label>Trek *</Label>
-              <Select required value={form.trekId} onChange={set('trekId')}>
+              <Select
+                required
+                value={form.trekId}
+                onChange={(e) => setForm((f) => ({ ...f, trekId: e.target.value, trekDate: '' }))}
+              >
                 <option value="">Select a trek…</option>
                 {treks?.filter((t) => t.is_active).map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.name} — {inr(t.permit_price)}/person
+                    {t.name}{t.district ? ` (${t.district})` : ''} — {inr(t.permit_price)}/person
                   </option>
                 ))}
               </Select>
             </div>
             <div>
+              <Label>Trek Date *</Label>
+              <Select required value={form.trekDate} onChange={set('trekDate')} disabled={!form.trekId || datesLoading}>
+                <option value="">
+                  {!form.trekId ? 'Select a trek first…' : datesLoading ? 'Loading dates…' : 'Select a date…'}
+                </option>
+                {openDates.map((d) => (
+                  <option key={d.id} value={d.trek_date}>
+                    {formatDate(d.trek_date)}
+                    {d.notes ? ` — ${d.notes}` : ''}
+                  </option>
+                ))}
+              </Select>
+              {form.trekId && !datesLoading && openDates.length === 0 && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  No dates are currently open for this trek. Check back later or contact an admin.
+                </p>
+              )}
+            </div>
+            <div>
               <Label>Persons *</Label>
-              <Input required type="number" min={1} max={100} value={form.persons} onChange={set('persons')} />
+              <Select required value={form.persons} onChange={set('persons')}>
+                {Array.from({ length: maxPersons }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </Select>
             </div>
           </div>
 

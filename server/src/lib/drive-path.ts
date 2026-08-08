@@ -12,10 +12,6 @@ export const ALLOWED_MIME: Record<string, string> = {
 /** 10 MB — matches the client-side guard and keeps uploads off slow links. */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 /** Drive treats these as path separators / query metacharacters. */
 export function sanitiseFolderName(name: string): string {
@@ -37,35 +33,62 @@ export function escapeDriveQuery(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
-/**
- * The folder chain a permit is filed under, relative to the configured root:
- *
- *   2026 / August / 09-08-2026 - Kudremukh Trek / Sunil Kumar
- *
- * `trekDate` is an ISO date (YYYY-MM-DD) and is formatted DD-MM-YYYY to match
- * the operational naming convention.
- */
-export function buildFolderPath(trekDate: string, trekName: string, memberName: string): string[] {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trekDate);
-  if (!m) throw new Error(`Invalid trek date "${trekDate}" (expected YYYY-MM-DD)`);
+/** Where rejected permits are archived, as a child of the configured root. */
+export const REJECTED_FOLDER = 'Rejected Tickets';
+
+/** `2026-08-22` -> `22-08-2026`. */
+export function toDdMmYyyy(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!m) throw new Error(`Invalid trek date "${isoDate}" (expected YYYY-MM-DD)`);
   const [, year, month, day] = m;
-
-  const monthIndex = Number(month) - 1;
-  if (monthIndex < 0 || monthIndex > 11) throw new Error(`Invalid month in "${trekDate}"`);
-
-  return [
-    year,
-    MONTHS[monthIndex],
-    sanitiseFolderName(`${day}-${month}-${year} - ${trekName}`),
-    sanitiseFolderName(memberName),
-  ];
+  if (Number(month) < 1 || Number(month) > 12) throw new Error(`Invalid month in "${isoDate}"`);
+  if (Number(day) < 1 || Number(day) > 31) throw new Error(`Invalid day in "${isoDate}"`);
+  return `${day}-${month}-${year}`;
 }
 
-/** Canonical stored filename: `Ticket.pdf`, `Ticket-v2.jpg`, … */
-export function buildFileName(mimeType: string, version: number): string {
+/**
+ * The folder a permit is filed under, relative to the configured root:
+ *
+ *   22-08-2026 - Kudremukh
+ *
+ * One folder per trek-date + trek, shared by every member booked on that
+ * departure — an admin verifying a given date opens exactly one folder and sees
+ * all of its permits together. Returned as an array because the Drive service
+ * walks it segment by segment.
+ */
+export function buildFolderPath(trekDate: string, trekName: string): string[] {
+  return [sanitiseFolderName(`${toDdMmYyyy(trekDate)} - ${trekName}`)];
+}
+
+/**
+ * Stored filename: `AV12345_SunilKumar_22-08-2026.pdf`.
+ *
+ * Members share a folder, so the ticket code has to be part of the name to keep
+ * files distinct. Re-uploads get a `_v2` suffix rather than overwriting, so a
+ * corrected permit never destroys the one an admin already reviewed.
+ */
+export function buildFileName(
+  mimeType: string,
+  version: number,
+  ticketCode: string,
+  memberName: string,
+  trekDate: string,
+): string {
   const ext = ALLOWED_MIME[mimeType];
   if (!ext) throw new Error(`Unsupported file type: ${mimeType}`);
-  return version <= 1 ? `Ticket.${ext}` : `Ticket-v${version}.${ext}`;
+  const code = sanitiseFileToken(ticketCode) || 'TICKET';
+  const who = sanitiseFileToken(memberName) || 'Member';
+  const when = toDdMmYyyy(trekDate);
+  const suffix = version > 1 ? `_v${version}` : '';
+  return `${code}_${who}_${when}${suffix}.${ext}`;
+}
+
+/** Filename-safe token: no separators, spaces or punctuation. */
+export function sanitiseFileToken(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 40);
 }
 
 export interface FileCheck {

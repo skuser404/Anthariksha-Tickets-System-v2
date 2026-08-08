@@ -23,6 +23,7 @@ import calendarRoutes from './routes/calendar.routes.js';
 import adminRoutes from './routes/admins.routes.js';
 import contactRoutes from './routes/contact.routes.js';
 import documentRoutes, { documentContentRouter } from './routes/documents.routes.js';
+import announcementRoutes from './routes/announcements.routes.js';
 import searchRoutes from './routes/search.routes.js';
 
 export function createApp() {
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/api/intel', intelRoutes);
   app.use('/api/calendar', calendarRoutes);
   app.use('/api/admins', adminRoutes);
+  app.use('/api/announcements', announcementRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/contact', contactRoutes); // public (unauthenticated), heavily rate-limited
   // Permit documents in Google Drive + Drive configuration. Mounted at /api so

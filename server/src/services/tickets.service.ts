@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { audit, notify } from '../lib/audit.js';
 import { postLedger } from '../lib/ledger.js';
 import { computeTicketFlags } from '../lib/verification.js';
-import { runVerificationChecks } from './documents.service.js';
+import { archiveRejectedDocument, runVerificationChecks } from './documents.service.js';
 import { orIlike } from '../lib/postgrest.js';
 
 const COMMISSION_PER_PERSON = 50;
@@ -17,9 +17,48 @@ export const createTicketSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   trekDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   persons: z.number().int().positive().max(100),
+  bookingAccountName: z.string().min(2).max(120).optional(),
   permitPrice: z.number().nonnegative().optional(), // resolved from trek if omitted
   remarks: z.string().max(1000).optional(),
 });
+
+/**
+ * A member may only book a (trek, date) the admin has opened.
+ *
+ * The form only offers configured dates, but that is a convenience — this is
+ * the check that actually holds, because the form can be tampered with or the
+ * API called directly.
+ */
+async function assertBookableDate(trekId: string | null, trekDate: string) {
+  if (!trekId) {
+    throw new ApiError(422, 'Select a trek from the list so the available dates can be checked.');
+  }
+  const { data } = await supabase
+    .from('trek_dates')
+    .select('status, max_persons')
+    .eq('trek_id', trekId)
+    .eq('trek_date', trekDate)
+    .maybeSingle();
+
+  if (!data) {
+    throw new ApiError(422, 'That date is not open for this trek. Pick one of the offered dates.');
+  }
+  if (data.status !== 'available') {
+    throw new ApiError(409, `That date is marked "${data.status}" and cannot be booked.`);
+  }
+  return data as { status: string; max_persons: number | null };
+}
+
+/** Persons already committed on a departure, used for the optional capacity cap. */
+async function personsBookedOn(trekName: string, trekDate: string): Promise<number> {
+  const { data } = await supabase
+    .from('tickets')
+    .select('persons')
+    .eq('trek_name', trekName)
+    .eq('trek_date', trekDate)
+    .in('status', ['pending_verification', 'approved']);
+  return (data ?? []).reduce((sum, t) => sum + Number(t.persons ?? 0), 0);
+}
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 
@@ -57,6 +96,19 @@ export async function createTicket(memberId: string, raw: unknown, ip?: string |
 
   const { price, trekId } = await resolvePermitPrice(input);
 
+  // Only admin-configured departures are bookable — enforced here, not just in
+  // the form, so a hand-crafted request cannot slip through.
+  const slot = await assertBookableDate(trekId, input.trekDate);
+  if (slot.max_persons !== null) {
+    const already = await personsBookedOn(input.trekName, input.trekDate);
+    if (already + input.persons > slot.max_persons) {
+      throw new ApiError(
+        409,
+        `Only ${Math.max(0, slot.max_persons - already)} place(s) remain on ${input.trekName} for that date.`,
+      );
+    }
+  }
+
   // Smart-verification flags + auto tags.
   const flags = await computeTicketFlags({
     memberId,
@@ -80,6 +132,7 @@ export async function createTicket(memberId: string, raw: unknown, ip?: string |
       booking_date: input.bookingDate,
       trek_date: input.trekDate,
       persons: input.persons,
+      booking_account_name: input.bookingAccountName ?? null,
       permit_price: price,
       commission_per_person: COMMISSION_PER_PERSON,
       status: 'pending_verification',
@@ -263,6 +316,11 @@ export async function verifyTicket(
       createdBy: adminId,
       notes: `Commission accrued on approval`,
     });
+  }
+
+  // A rejected permit moves to the Rejected Tickets archive in Drive.
+  if (decision === 'not_confirmed') {
+    await archiveRejectedDocument(ticketId, adminId);
   }
 
   await audit({ actorId: adminId, action: `ticket.${decision}`, entity: 'ticket', entityId: ticketId, ip });

@@ -31,7 +31,9 @@ const TicketsPage = lazy(() => import('./pages/Tickets'));
 const TicketDetailPage = lazy(() => import('./pages/TicketDetail'));
 const AddTicketPage = lazy(() => import('./pages/AddTicket'));
 const EarningsPage = lazy(() => import('./pages/Earnings'));
-const RefundsPage = lazy(() => import('./pages/Refunds'));
+// Cancellation/refund is retired: the live flow is pending -> approved | rejected.
+// The page and its API are left in the repo so historical refunds stay readable
+// if the route is ever re-enabled, but it is no longer reachable or linked.
 const NotificationsPage = lazy(() => import('./pages/Notifications'));
 const ProfilePage = lazy(() => import('./pages/Profile'));
 const HelpPage = lazy(() => import('./pages/Help'));
@@ -54,6 +56,8 @@ const ActivityFeedPage = lazy(() => import('./pages/admin/ActivityFeed'));
 const CalendarPage = lazy(() => import('./pages/admin/Calendar'));
 const AdminsPage = lazy(() => import('./pages/admin/Admins'));
 const DriveSettingsPage = lazy(() => import('./pages/admin/DriveSettings'));
+const TrekDatesPage = lazy(() => import('./pages/admin/TrekDates'));
+const AnnouncementsPage = lazy(() => import('./pages/admin/Announcements'));
 
 const adminOnly = (node: ReactNode) => <RoleGate roles={['admin']}>{node}</RoleGate>;
 const superOnly = (node: ReactNode) => <RoleGate roles={['admin']} superOnly>{node}</RoleGate>;
@@ -105,7 +109,6 @@ export default function App() {
             <Route path="/tickets/new" element={<AddTicketPage />} />
             <Route path="/tickets/:id" element={<TicketDetailPage />} />
             <Route path="/earnings" element={<EarningsPage />} />
-            <Route path="/refunds" element={<RefundsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/help" element={<HelpPage />} />
@@ -125,6 +128,8 @@ export default function App() {
             <Route path="/admin/reports" element={adminOnly(<ReportsPage />)} />
             <Route path="/admin/analytics" element={adminOnly(<AnalyticsPage />)} />
             <Route path="/admin/treks" element={adminOnly(<TreksPage />)} />
+          <Route path="/admin/trek-dates" element={adminOnly(<TrekDatesPage />)} />
+          <Route path="/admin/announcements" element={adminOnly(<AnnouncementsPage />)} />
             <Route path="/admin/audit" element={adminOnly(<AuditLogsPage />)} />
             <Route path="/admin/settings" element={adminOnly(<SettingsPage />)} />
             {/* Super-admin only */}

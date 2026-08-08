@@ -3,9 +3,9 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Ticket, PlusCircle, ShieldCheck, Mountain, Search,
-  Menu, X, Wallet, RotateCcw, IndianRupee, BarChart3, FileText, Archive, Repeat,
-  Users, ScrollText, Settings as SettingsIcon, Bell, UserCircle, LifeBuoy, Ban,
-  BookLock, Trophy, Activity, CalendarDays, Crown, HardDrive,
+  Menu, X, Wallet, IndianRupee, BarChart3, FileText, Archive, Repeat,
+  Users, ScrollText, Settings as SettingsIcon, Bell, UserCircle, LifeBuoy,
+  BookLock, Trophy, Activity, CalendarDays, Crown, HardDrive, Megaphone,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,6 @@ const memberNav: NavItem[] = [
   { to: '/tickets/new', label: 'Add Ticket', icon: PlusCircle },
   { to: '/tickets', label: 'My Tickets', icon: Ticket },
   { to: '/earnings', label: 'Payment History', icon: Wallet },
-  { to: '/refunds', label: 'Refund History', icon: RotateCcw },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/profile', label: 'Profile', icon: UserCircle },
   { to: '/help', label: 'Help & Support', icon: LifeBuoy },
@@ -37,7 +36,8 @@ const adminNav: NavItem[] = [
   { to: '/admin/tickets', label: 'Ticket Verification', icon: ShieldCheck },
   { to: '/admin/originals', label: 'Original Tickets', icon: Archive },
   { to: '/admin/replacements', label: 'Replacement Tickets', icon: Repeat },
-  { to: '/refunds', label: 'Cancellation & Refunds', icon: Ban },
+  { to: '/admin/trek-dates', label: 'Treks & Dates', icon: CalendarDays },
+  { to: '/admin/announcements', label: 'Announcements', icon: Megaphone },
   { to: '/admin/payments', label: 'Payment Management', icon: Wallet },
   { to: '/admin/ledger', label: 'Financial Ledger', icon: BookLock },
   { to: '/admin/money-flow', label: 'Money Flow', icon: IndianRupee },

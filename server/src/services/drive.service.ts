@@ -11,6 +11,7 @@ import {
   filePreviewUrl,
   folderUrl,
   validateUpload,
+  REJECTED_FOLDER,
 } from '../lib/drive-path.js';
 
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
@@ -144,10 +145,10 @@ async function ensureFolder(parentId: string, name: string): Promise<string> {
   return id;
 }
 
-/** Walk (and create) the full `2026/August/09-08-2026 - Trek/Member` chain. */
-export async function ensureTicketFolder(trekDate: string, trekName: string, memberName: string) {
+/** Resolve (creating if needed) the `22-08-2026 - Kudremukh` departure folder. */
+export async function ensureTicketFolder(trekDate: string, trekName: string) {
   const root = await getRootFolderId();
-  const segments = buildFolderPath(trekDate, trekName, memberName);
+  const segments = buildFolderPath(trekDate, trekName);
   let parent = root;
   for (const segment of segments) {
     // Sequential by nature: each folder is the parent of the next.
@@ -155,6 +156,31 @@ export async function ensureTicketFolder(trekDate: string, trekName: string, mem
     parent = await ensureFolder(parent, segment);
   }
   return { folderId: parent, folderUrl: folderUrl(parent), path: segments.join('/') };
+}
+
+/**
+ * Move a rejected permit into `Rejected Tickets/22-08-2026 - Kudremukh`.
+ *
+ * Rejections archive rather than delete: the document is the evidence for why
+ * the ticket was refused, so destroying it would break the audit trail.
+ */
+export async function archiveRejected(
+  fileId: string,
+  currentFolderId: string,
+  trekDate: string,
+  trekName: string,
+) {
+  const root = await getRootFolderId();
+  const bin = await ensureFolder(root, REJECTED_FOLDER);
+  const dated = await ensureFolder(bin, buildFolderPath(trekDate, trekName)[0]);
+  await drive().files.update({
+    fileId,
+    addParents: dated,
+    removeParents: currentFolderId,
+    fields: 'id',
+    supportsAllDrives: true,
+  });
+  return { rejectedFolderId: dated, rejectedFolderUrl: folderUrl(dated) };
 }
 
 export interface UploadedDoc {
@@ -176,13 +202,20 @@ export async function uploadPermit(params: {
   trekDate: string;
   trekName: string;
   memberName: string;
+  ticketCode: string;
   version: number;
 }): Promise<UploadedDoc> {
   const check = validateUpload(params.mimeType, params.buffer.length, params.buffer.subarray(0, 8));
   if (!check.ok) throw new ApiError(422, check.reason!);
 
-  const folder = await ensureTicketFolder(params.trekDate, params.trekName, params.memberName);
-  const fileName = buildFileName(params.mimeType, params.version);
+  const folder = await ensureTicketFolder(params.trekDate, params.trekName);
+  const fileName = buildFileName(
+    params.mimeType,
+    params.version,
+    params.ticketCode,
+    params.memberName,
+    params.trekDate,
+  );
 
   const created = await drive().files.create({
     requestBody: { name: fileName, parents: [folder.folderId] },

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Search, LayoutDashboard, Ticket, PlusCircle, Wallet, RotateCcw, Bell, UserCircle,
+  Search, LayoutDashboard, Ticket, PlusCircle, Wallet, Bell, UserCircle, Megaphone,
   ShieldCheck, Users, FileText, BarChart3, IndianRupee, Mountain, ScrollText,
   Settings as SettingsIcon, Archive, Repeat, Moon, CornerDownLeft,
   BookLock, Trophy, Activity, CalendarDays, MessageSquare, Loader2,
@@ -78,7 +78,6 @@ export function CommandPalette() {
       { label: 'My Tickets', icon: Ticket, run: go('/tickets') },
       { label: 'Add Ticket', icon: PlusCircle, hint: 'Create', run: go('/tickets/new') },
       { label: 'Payment History', icon: Wallet, run: go('/earnings') },
-      { label: 'Refunds', icon: RotateCcw, run: go('/refunds') },
       { label: 'Notifications', icon: Bell, run: go('/notifications') },
       { label: 'Profile', icon: UserCircle, run: go('/profile') },
       { label: 'Toggle dark / light', icon: Moon, run: () => { setOpen(false); toggle(); } },
@@ -97,6 +96,8 @@ export function CommandPalette() {
       { label: 'Original Tickets', icon: Archive, run: go('/admin/originals'), admin: true },
       { label: 'Replacement Tickets', icon: Repeat, run: go('/admin/replacements'), admin: true },
       { label: 'Trek Pricing', icon: Mountain, run: go('/admin/treks'), admin: true },
+      { label: 'Treks & Dates', icon: CalendarDays, run: go('/admin/trek-dates'), admin: true },
+      { label: 'Announcements', icon: Megaphone, run: go('/admin/announcements'), admin: true },
       { label: 'Audit Logs', icon: ScrollText, run: go('/admin/audit'), admin: true },
       { label: 'Settings', icon: SettingsIcon, run: go('/admin/settings'), admin: true },
     ];

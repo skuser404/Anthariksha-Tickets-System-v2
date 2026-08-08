@@ -93,6 +93,7 @@ export async function uploadDocument(params: {
     trekDate: ticket.trek_date,
     trekName: ticket.trek_name,
     memberName: ticket.member?.full_name ?? 'Unknown Member',
+    ticketCode: ticket.ticket_code,
     version,
   });
 
@@ -185,6 +186,62 @@ export async function archiveDocument(ticketId: string, adminId: string, ip?: st
 
   await audit({ actorId: adminId, action: 'document.archive', entity: 'ticket', entityId: ticketId, metadata: { driveFileId: doc.drive_file_id }, ip });
   return { ok: true };
+}
+
+/**
+ * Move a rejected ticket's permit into the `Rejected Tickets` archive.
+ *
+ * Best-effort by design: a Drive hiccup must not roll back a rejection the
+ * admin already confirmed. The database keeps the row either way, so a failed
+ * move is visible (rejected_at stays null) and can be retried.
+ */
+export async function archiveRejectedDocument(ticketId: string, adminId: string) {
+  const ticket = await ticketFor(ticketId);
+  const { data } = await supabase
+    .from('ticket_documents')
+    .select('*')
+    .eq('ticket_id', ticketId)
+    .eq('is_current', true)
+    .maybeSingle();
+  const doc = data as DocRow | null;
+  if (!doc?.drive_folder_id) return { archived: false as const };
+
+  try {
+    const moved = await drive.archiveRejected(
+      doc.drive_file_id,
+      doc.drive_folder_id,
+      ticket.trek_date,
+      ticket.trek_name,
+    );
+    await supabase
+      .from('ticket_documents')
+      .update({
+        rejected_at: new Date().toISOString(),
+        rejected_file_id: doc.drive_file_id,
+        rejected_folder_id: moved.rejectedFolderId,
+        drive_folder_id: moved.rejectedFolderId,
+        drive_folder_url: moved.rejectedFolderUrl,
+      })
+      .eq('id', doc.id);
+    await audit({
+      actorId: adminId,
+      action: 'document.rejected_archived',
+      entity: 'ticket',
+      entityId: ticketId,
+      metadata: { driveFileId: doc.drive_file_id, into: moved.rejectedFolderId },
+    });
+    return { archived: true as const, ...moved };
+  } catch (e) {
+    // Surface it in the audit log rather than failing the rejection.
+    await audit({
+      actorId: adminId,
+      action: 'document.rejected_archive_failed',
+      entity: 'ticket',
+      entityId: ticketId,
+      metadata: { driveFileId: doc.drive_file_id, error: e instanceof Error ? e.message : 'unknown' },
+    });
+    return { archived: false as const };
+  }
 }
 
 export interface VerificationCheck {
