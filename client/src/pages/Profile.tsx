@@ -24,6 +24,13 @@ export default function ProfilePage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ['me'], queryFn: async () => (await api.get('/users/me')).data.data as Me });
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => (await api.get('/settings')).data.data as Record<string, unknown>,
+    staleTime: 5 * 60_000,
+  });
+  const twoFactorEnabled = settings?.two_factor_enabled === true;
+
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
@@ -137,7 +144,17 @@ export default function ProfilePage() {
       <Card className="space-y-4">
         <CardTitle className="flex items-center gap-2"><ShieldCheck size={15} /> Security</CardTitle>
 
-        {data.role === 'admin' ? (
+        {/* Only offer the toggle when the server would actually act on it —
+            otherwise it is a switch that silently does nothing. */}
+        {!twoFactorEnabled ? (
+          <Toggle
+            label="Two-factor authentication"
+            hint="Disabled for this deployment. Sign-in needs your password only."
+            checked={false}
+            disabled
+            onChange={() => {}}
+          />
+        ) : data.role === 'admin' ? (
           <Toggle
             label="Two-factor authentication"
             hint={`Email OTP is always required for admins.${data.totp_enabled ? ' Authenticator app enrolled.' : ''}`}

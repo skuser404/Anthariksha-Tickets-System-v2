@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { ApiError, ok } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
 import { audit } from '../lib/audit.js';
+import { env } from '../config/env.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -16,6 +17,11 @@ router.get(
     const { data, error } = await supabase.from('settings').select('key, value');
     if (error) throw new ApiError(500, error.message);
     const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
+
+    // Server-derived, not a stored row: it comes from the environment. Exposed
+    // so the UI can avoid offering a 2FA toggle that the API would ignore.
+    map.two_factor_enabled = env.security.twoFactor;
+
     ok(res, map);
   }),
 );

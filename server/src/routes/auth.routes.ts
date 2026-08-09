@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/error.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ApiError, ok } from '../lib/http.js';
 import { verifyRefresh } from '../lib/tokens.js';
+import { env } from '../config/env.js';
 import * as auth from '../services/auth.service.js';
 
 const router = Router();
@@ -84,9 +85,19 @@ router.get(
 );
 
 // --- Authenticator-app (TOTP) enrollment for the logged-in admin ---
+
+/** Enrolling is pointless while the master switch is off; say so plainly. */
+const requireTwoFactorEnabled: import('express').RequestHandler = (_req, _res, next) =>
+  next(
+    env.security.twoFactor
+      ? undefined
+      : new ApiError(409, 'Two-factor authentication is disabled for this deployment.'),
+  );
+
 router.post(
   '/totp/setup',
   requireAuth,
+  requireTwoFactorEnabled,
   asyncHandler(async (req, res) => {
     if (req.user!.role !== 'admin') throw new ApiError(403, 'Admins only');
     ok(res, await auth.setupTotp(req.user!.sub, req.user!.email));
@@ -96,6 +107,7 @@ router.post(
 router.post(
   '/totp/confirm',
   requireAuth,
+  requireTwoFactorEnabled,
   asyncHandler(async (req, res) => {
     const { code } = z.object({ code: z.string().min(6).max(6) }).parse(req.body);
     ok(res, await auth.confirmTotp(req.user!.sub, code));

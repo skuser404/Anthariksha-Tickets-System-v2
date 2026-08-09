@@ -144,13 +144,11 @@ export async function loginWithPassword(
 
   await logAttempt({ userId: user.id, email, success: true, stage: 'password', meta });
 
-  // A second factor applies when the deployment forces it for admins, or when
-  // this specific user opted in (email OTP or an enrolled authenticator app).
-  // Per-user choices are always honoured, even with the admin rule turned off.
+  // Two-factor is off entirely unless the deployment enables it. When it is on,
+  // admins are always challenged and members are if they opted in.
   const needs2fa =
-    (user.role === 'admin' && env.security.adminTwoFactor) ||
-    user.email_2fa === true ||
-    user.totp_enabled === true;
+    env.security.twoFactor &&
+    (user.role === 'admin' || user.email_2fa === true || user.totp_enabled === true);
   if (!needs2fa) {
     await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
     await sendLoginAlert(user, meta);

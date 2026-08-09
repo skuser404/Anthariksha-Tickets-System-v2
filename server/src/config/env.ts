@@ -76,17 +76,20 @@ export const env = {
 
   security: {
     /**
-     * Force every admin through an email OTP after the password step.
+     * Master switch for two-factor authentication.
      *
-     * Disabled by default: with no SMTP configured the code only appears in the
-     * server log, which makes admin sign-in impractical. Set ADMIN_2FA=on once
-     * SMTP works — an admin account can approve tickets and move money, so a
-     * second factor is worth restoring.
+     * OFF (default): nobody is ever challenged — not admins, and not users who
+     * previously opted into email OTP or enrolled an authenticator app. Their
+     * stored preferences are left intact, so turning this back on restores
+     * their choices rather than silently losing them.
      *
-     * Independent of per-user opt-ins: a member who enables email 2FA, or
-     * anyone who enrolled an authenticator app, is still challenged.
+     * ON: admins are always challenged, plus any user who opted in.
+     *
+     * It is off because with no SMTP configured the code only reaches the
+     * server log. An admin can approve tickets and record payments, so turning
+     * this on once mail works is worth doing.
      */
-    adminTwoFactor: optional('ADMIN_2FA', 'off').toLowerCase() === 'on',
+    twoFactor: optional('TWO_FACTOR', 'off').toLowerCase() === 'on',
 
     otpTtlSeconds: int('OTP_TTL_SECONDS', 300),
     otpResendSeconds: int('OTP_RESEND_SECONDS', 60),
