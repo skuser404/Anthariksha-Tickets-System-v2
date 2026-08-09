@@ -35,6 +35,22 @@ function loadCredentials(): { client_email: string; private_key: string } {
     throw new ApiError(503, 'Google Drive is not configured (GOOGLE_DRIVE_CREDENTIALS is unset).');
   }
   let json: string = raw.trim();
+
+  // These three values look nothing alike but are pasted into the wrong
+  // variable constantly. Name the mistake instead of failing on a JSON parse.
+  if (json.endsWith('.apps.googleusercontent.com')) {
+    throw new ApiError(
+      500,
+      'GOOGLE_DRIVE_CREDENTIALS contains an OAuth client ID. Move it to GOOGLE_OAUTH_CLIENT_ID.',
+    );
+  }
+  if (json.startsWith('GOCSPX-')) {
+    throw new ApiError(
+      500,
+      'GOOGLE_DRIVE_CREDENTIALS contains an OAuth client secret. Move it to GOOGLE_OAUTH_CLIENT_SECRET.',
+    );
+  }
+
   if (!json.startsWith('{')) {
     try {
       json = Buffer.from(json, 'base64').toString('utf8');
