@@ -171,7 +171,8 @@ router.post(
   requireSuper,
   asyncHandler(async (_req, res) => {
     const status = await drive.testConnection();
-    await drive.saveDriveSettings(status.rootFolderId, status.connected ? 'connected' : status.message);
+    // Record only the outcome — a test must never rewrite the folder id.
+    await drive.saveDriveSettings(undefined, status.connected ? 'connected' : status.message);
     ok(res, status);
   }),
 );
@@ -185,7 +186,7 @@ router.put(
       .parse(req.body);
     await drive.saveDriveSettings(rootFolderId);
     const status = await drive.testConnection();
-    await drive.saveDriveSettings(status.rootFolderId, status.connected ? 'connected' : status.message);
+    await drive.saveDriveSettings(undefined, status.connected ? 'connected' : status.message);
     ok(res, status);
   }),
 );

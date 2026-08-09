@@ -388,10 +388,18 @@ export async function testConnection(): Promise<DriveStatus> {
   }
 }
 
-/** Persist the configured root folder id + last sync outcome. */
-export async function saveDriveSettings(rootFolderId: string | null, status?: string) {
+/**
+ * Persist the root folder id and/or the last sync outcome.
+ *
+ * `rootFolderId` is only written when explicitly provided. Passing `undefined`
+ * records the sync result and leaves the configured folder alone — a failed
+ * connection test used to write its null folder id back over a working
+ * configuration, silently un-configuring Drive.
+ */
+export async function saveDriveSettings(rootFolderId?: string | null, status?: string) {
+  const current = (await getDriveSettings()) as { rootFolderId?: string | null };
   const value = {
-    rootFolderId: rootFolderId || null,
+    rootFolderId: rootFolderId === undefined ? (current.rootFolderId ?? null) : (rootFolderId || null),
     lastSyncAt: new Date().toISOString(),
     lastSyncStatus: status ?? null,
   };
