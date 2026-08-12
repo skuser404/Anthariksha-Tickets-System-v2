@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api, apiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Button, Input, Label } from '@/components/ui';
+import { GoogleSignIn } from '@/components/GoogleSignIn';
 
 export default function LoginPage() {
   const { setSession } = useAuth();
@@ -95,6 +96,18 @@ export default function LoginPage() {
     }
   }
 
+  async function onGoogle(credential: string) {
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/google', { credential });
+      finalize(res.data.data);
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="app-bg grid min-h-screen place-items-center p-4">
       <motion.div
@@ -165,6 +178,8 @@ export default function LoginPage() {
               <Button type="submit" size="lg" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="animate-spin" size={16} />} Sign in
               </Button>
+
+              <GoogleSignIn onCredential={onGoogle} disabled={loading} />
             </motion.form>
           ) : (
             <motion.form

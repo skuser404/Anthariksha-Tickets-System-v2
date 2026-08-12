@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { authenticator } from 'otplib';
+import { OAuth2Client } from 'google-auth-library';
 import { env } from '../config/env.js';
 import { ApiError } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
@@ -279,6 +280,63 @@ export async function verifyOtp(challengeToken: string, code: string, meta: ReqM
     .update({ failed_otp_count: 0, locked_until: null, last_login_at: new Date().toISOString() })
     .eq('id', user.id);
   await logAttempt({ userId: user.id, email: user.email, success: true, stage: 'otp', meta });
+  await sendLoginAlert(user, meta);
+
+  return { twoFactorRequired: false as const, ...issueSession(user) };
+}
+
+/**
+ * Sign in with a Google ID token ("Sign in with Google").
+ *
+ * Identity is asserted by Google, so there is no password and no emailed code —
+ * which also means this works with no SMTP configured at all.
+ *
+ * Accounts are never created here. The email must already belong to a member an
+ * admin added; signing in with an unknown Google account is refused. That keeps
+ * the "no public registration" rule intact.
+ */
+export async function loginWithGoogle(credential: string, meta: ReqMeta) {
+  const clientId = env.drive.oauthClientId;
+  if (!clientId) {
+    throw new ApiError(503, 'Google sign-in is not configured on the server.');
+  }
+
+  let payload: import('google-auth-library').TokenPayload | undefined;
+  try {
+    const ticket = await new OAuth2Client(clientId).verifyIdToken({
+      idToken: credential,
+      audience: clientId,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    throw new ApiError(401, 'Could not verify that Google sign-in. Please try again.');
+  }
+
+  const email = payload?.email?.toLowerCase();
+  if (!email) throw new ApiError(401, 'Google did not return an email address.');
+
+  // Google sets this false for unconfirmed addresses; accepting those would let
+  // someone claim an account by registering the address elsewhere.
+  if (payload?.email_verified === false) {
+    await logAttempt({ email, success: false, stage: 'password', reason: 'google_email_unverified', meta });
+    throw new ApiError(403, 'That Google account has an unverified email address.');
+  }
+
+  const user = await getUserByEmail(email);
+  if (!user) {
+    await logAttempt({ email, success: false, stage: 'password', reason: 'google_no_account', meta });
+    throw new ApiError(403, `No account exists for ${email}. Ask an administrator to create one.`);
+  }
+  if (!user.is_active) {
+    await logAttempt({ userId: user.id, email, success: false, stage: 'password', reason: 'inactive', meta });
+    throw new ApiError(403, 'This account has been disabled.');
+  }
+  if (isLocked(user)) {
+    throw new ApiError(423, 'Account temporarily locked. Try again later.');
+  }
+
+  await logAttempt({ userId: user.id, email, success: true, stage: 'password', reason: 'google', meta });
+  await supabase.from('users').update({ last_login_at: new Date().toISOString() }).eq('id', user.id);
   await sendLoginAlert(user, meta);
 
   return { twoFactorRequired: false as const, ...issueSession(user) };

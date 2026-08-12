@@ -43,6 +43,17 @@ const otpSchema = z.object({
   code: z.string().min(4).max(8),
 });
 
+// Sign in with Google. No password and no emailed code, so it works with no
+// SMTP configured. Rate-limited the same as password login.
+router.post(
+  '/google',
+  loginLimiter,
+  asyncHandler(async (req, res) => {
+    const { credential } = z.object({ credential: z.string().min(20) }).parse(req.body);
+    ok(res, await auth.loginWithGoogle(credential, meta(req)));
+  }),
+);
+
 router.post(
   '/verify-otp',
   loginLimiter,
