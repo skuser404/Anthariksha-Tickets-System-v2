@@ -21,7 +21,7 @@ import { IdleTimeout } from '@/components/IdleTimeout';
 type NavItem = { to: string; label: string; icon: typeof Ticket; end?: boolean };
 
 const memberNav: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tickets/new', label: 'Add Ticket', icon: PlusCircle },
   { to: '/tickets', label: 'My Tickets', icon: Ticket },
   { to: '/earnings', label: 'Payment History', icon: Wallet },
@@ -31,7 +31,7 @@ const memberNav: NavItem[] = [
 ];
 
 const adminNav: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tickets/new', label: 'Add Ticket', icon: PlusCircle },
   { to: '/admin/tickets', label: 'Ticket Verification', icon: ShieldCheck },
   { to: '/admin/originals', label: 'Original Tickets', icon: Archive },

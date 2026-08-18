@@ -70,9 +70,21 @@ function RoleGate({ children, roles, superOnly }: { children: ReactNode; roles?:
   return <>{children}</>;
 }
 
+/**
+ * The landing target after sign-in. Admins and members have distinct home
+ * routes (`/admin` and `/dashboard`), so `/` only decides which one to send
+ * you to. The role comes from the server-signed session, never from the URL.
+ */
 function RoleHome() {
   const { user } = useAuth();
-  return user?.role === 'admin' ? <AdminDashboard /> : <MemberDashboard />;
+  return <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+}
+
+/** Bounce a member who types /admin to their own dashboard, and vice versa. */
+function HomeFor({ role }: { role: 'admin' | 'member' }) {
+  const { user } = useAuth();
+  if (user?.role !== role) return <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  return role === 'admin' ? <AdminDashboard /> : <MemberDashboard />;
 }
 
 /** Fallback for lazily-loaded routes that render outside DashboardLayout. */
@@ -105,6 +117,8 @@ export default function App() {
           // ---------- Authenticated app ----------
           <Route element={<DashboardLayout />}>
             <Route index element={<RoleHome />} />
+            <Route path="/admin" element={<HomeFor role="admin" />} />
+            <Route path="/dashboard" element={<HomeFor role="member" />} />
             <Route path="/tickets" element={<TicketsPage />} />
             <Route path="/tickets/new" element={<AddTicketPage />} />
             <Route path="/tickets/:id" element={<TicketDetailPage />} />

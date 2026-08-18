@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 import { errorHandler, notFound } from './middleware/error.js';
+import { buildHealthReport } from './lib/health.js';
+import { requestLog } from './middleware/request-log.js';
 import authRoutes from './routes/auth.routes.js';
 import ticketRoutes from './routes/tickets.routes.js';
 import trekRoutes from './routes/treks.routes.js';
@@ -38,6 +40,7 @@ export function createApp() {
     }),
   );
   app.use(express.json({ limit: '1mb' }));
+  app.use(requestLog);
 
   // Global rate limit (defense-in-depth; tighter limiters live on auth routes).
   app.use(
@@ -49,7 +52,12 @@ export function createApp() {
     }),
   );
 
-  app.get('/health', (_req, res) => res.json({ ok: true, service: 'antariksha-api', ts: Date.now() }));
+  // Unauthenticated so uptime monitors can poll it; reports only pass/fail and
+  // short diagnostics, never a secret or any part of one.
+  app.get('/health', async (_req, res) => {
+    const report = await buildHealthReport();
+    res.status(report.ok ? 200 : 503).json(report);
+  });
 
   // This is an API-only service; hitting the root in a browser otherwise
   // returns a bare "Route not found", which reads like a deployment failure.

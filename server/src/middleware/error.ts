@@ -8,15 +8,17 @@ export function notFound(_req: Request, res: Response) {
 
 // The 4-arg signature is what marks this as Express error-handling middleware,
 // so `_next` must stay even though it is unused.
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
+  const requestId = req.id;
   if (err instanceof ZodError) {
-    return fail(res, 422, 'Validation failed', err.flatten());
+    return fail(res, 422, 'Validation failed', { ...err.flatten(), requestId });
   }
   if (err instanceof ApiError) {
-    return fail(res, err.status, err.message, err.details);
+    return fail(res, err.status, err.message, err.details ?? { requestId });
   }
-  console.error('Unhandled error:', err);
-  return fail(res, 500, 'Internal server error');
+  // Correlates with the [req] line carrying the same id.
+  console.error(`Unhandled error [${requestId}]:`, err);
+  return fail(res, 500, 'Internal server error', { requestId });
 }
 
 /** Wrap async route handlers so thrown errors reach the error handler. */

@@ -3,7 +3,7 @@ import { LayoutDashboard, Ticket, PlusCircle, Wallet, UserCircle } from 'lucide-
 import { cn } from '@/lib/utils';
 
 const items = [
-  { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
+  { to: '/dashboard', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/tickets', label: 'Tickets', icon: Ticket },
   { to: '/tickets/new', label: 'Add', icon: PlusCircle },
   { to: '/earnings', label: 'Earnings', icon: Wallet },
