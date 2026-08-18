@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/error.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { ApiError, ok } from '../lib/http.js';
+import { ApiError, assertHasUpdates, ok } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
 import { audit } from '../lib/audit.js';
 
@@ -98,6 +98,7 @@ router.patch(
     if (b.status !== undefined) patch.status = b.status;
     if (b.maxPersons !== undefined) patch.max_persons = b.maxPersons;
     if (b.notes !== undefined) patch.notes = b.notes;
+    assertHasUpdates(patch, ['trekDate', 'status', 'maxPersons', 'notes']);
     const { data, error } = await supabase.from('trek_dates').update(patch).eq('id', req.params.id).select('*').single();
     if (error) throw new ApiError(500, error.message);
     await audit({ actorId: req.user!.sub, action: 'trek_date.update', entity: 'trek_date', entityId: req.params.id, metadata: patch, ip: req.ip });
@@ -167,6 +168,7 @@ router.patch(
     if (body.district !== undefined) patch.district = body.district;
     if (body.description !== undefined) patch.description = body.description;
     if (body.bookingInstructions !== undefined) patch.booking_instructions = body.bookingInstructions;
+    assertHasUpdates(patch, ['name', 'permitPrice', 'isActive', 'district', 'description', 'bookingInstructions']);
     const { data, error } = await supabase
       .from('trek_pricing')
       .update(patch)

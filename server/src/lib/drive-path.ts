@@ -36,20 +36,28 @@ export function escapeDriveQuery(value: string): string {
 /** Where rejected permits are archived, as a child of the configured root. */
 export const REJECTED_FOLDER = 'Rejected Tickets';
 
-/** `2026-08-22` -> `22-08-2026`. */
-export function toDdMmYyyy(isoDate: string): string {
+/**
+ * Validate an ISO date and return it unchanged.
+ *
+ * Trek dates are handled as plain `YYYY-MM-DD` strings end to end and are never
+ * parsed into a Date. Parsing would apply the server's timezone, so a date
+ * chosen as 22 August could be filed as the 21st on a server behind UTC.
+ */
+export function assertIsoDate(isoDate: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
   if (!m) throw new Error(`Invalid trek date "${isoDate}" (expected YYYY-MM-DD)`);
-  const [, year, month, day] = m;
+  const [, , month, day] = m;
   if (Number(month) < 1 || Number(month) > 12) throw new Error(`Invalid month in "${isoDate}"`);
   if (Number(day) < 1 || Number(day) > 31) throw new Error(`Invalid day in "${isoDate}"`);
-  return `${day}-${month}-${year}`;
+  return isoDate;
 }
 
 /**
  * The folder a permit is filed under, relative to the configured root:
  *
- *   22-08-2026 - Kudremukh
+ *   2026-08-22 - Kudremukh
+ *
+ * ISO order so Drive sorts departures chronologically by name.
  *
  * One folder per trek-date + trek, shared by every member booked on that
  * departure — an admin verifying a given date opens exactly one folder and sees
@@ -57,11 +65,11 @@ export function toDdMmYyyy(isoDate: string): string {
  * walks it segment by segment.
  */
 export function buildFolderPath(trekDate: string, trekName: string): string[] {
-  return [sanitiseFolderName(`${toDdMmYyyy(trekDate)} - ${trekName}`)];
+  return [sanitiseFolderName(`${assertIsoDate(trekDate)} - ${trekName}`)];
 }
 
 /**
- * Stored filename: `AV12345_SunilKumar_22-08-2026.pdf`.
+ * Stored filename: `AV12345_SunilKumar_2026-08-22.pdf`.
  *
  * Members share a folder, so the ticket code has to be part of the name to keep
  * files distinct. Re-uploads get a `_v2` suffix rather than overwriting, so a
@@ -78,7 +86,7 @@ export function buildFileName(
   if (!ext) throw new Error(`Unsupported file type: ${mimeType}`);
   const code = sanitiseFileToken(ticketCode) || 'TICKET';
   const who = sanitiseFileToken(memberName) || 'Member';
-  const when = toDdMmYyyy(trekDate);
+  const when = assertIsoDate(trekDate);
   const suffix = version > 1 ? `_v${version}` : '';
   return `${code}_${who}_${when}${suffix}.${ext}`;
 }

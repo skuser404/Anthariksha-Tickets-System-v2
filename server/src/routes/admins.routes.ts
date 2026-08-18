@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../middleware/error.js';
 import { requireAuth, requireSuper } from '../middleware/auth.js';
-import { ApiError, ok } from '../lib/http.js';
+import { ApiError, assertHasUpdates, ok } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
 import { audit } from '../lib/audit.js';
 import { sendMail } from '../lib/mailer.js';
@@ -74,6 +74,7 @@ router.patch(
     if (b.phone !== undefined) patch.phone = b.phone;
     if (b.isActive !== undefined) patch.is_active = b.isActive;
     if (b.isSuper !== undefined) patch.is_super = b.isSuper;
+    assertHasUpdates(patch, ['fullName', 'email', 'phone', 'isActive', 'isSuper']);
     const { data, error } = await supabase
       .from('users')
       .update(patch)

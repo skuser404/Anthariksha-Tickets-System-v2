@@ -3,7 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../middleware/error.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { ApiError, ok } from '../lib/http.js';
+import { ApiError, assertHasUpdates, ok } from '../lib/http.js';
 import { supabase } from '../lib/supabase.js';
 import { audit } from '../lib/audit.js';
 import { sendMail } from '../lib/mailer.js';
@@ -83,6 +83,7 @@ router.patch(
     if (b.email !== undefined) patch.email = b.email;
     if (b.phone !== undefined) patch.phone = b.phone;
     if (b.isActive !== undefined) patch.is_active = b.isActive;
+    assertHasUpdates(patch, ['fullName', 'email', 'phone', 'isActive']);
     const { data, error } = await supabase
       .from('users')
       .update(patch)
@@ -241,6 +242,7 @@ router.patch(
     // Admins always have 2FA; the toggle only applies to members.
     if (b.email2fa !== undefined && req.user!.role === 'member') patch.email_2fa = b.email2fa;
     if (b.loginAlerts !== undefined) patch.login_alerts = b.loginAlerts;
+    assertHasUpdates(patch, ['email2fa', 'loginAlerts']);
     const { data, error } = await supabase
       .from('users')
       .update(patch)
@@ -262,6 +264,7 @@ router.patch(
     if (b.fullName !== undefined) patch.full_name = b.fullName;
     if (b.phone !== undefined) patch.phone = b.phone;
     if (b.avatarUrl !== undefined) patch.avatar_url = b.avatarUrl;
+    assertHasUpdates(patch, ['fullName', 'phone', 'avatarUrl']);
     const { data, error } = await supabase.from('users').update(patch).eq('id', req.user!.sub).select('id, full_name, phone, avatar_url').single();
     if (error) throw new ApiError(500, error.message);
     ok(res, data);
